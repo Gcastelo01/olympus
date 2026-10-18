@@ -1,5 +1,25 @@
 # Olympus v1.2 — Installation (Codex CLI and Claude Code)
 
+## Install into a project
+
+The `.agents/skills/` directory is the canonical source for skill behavior. Runtime bindings and tools are installed from the explicit `package-manifest.json` allowlist; local databases, environment files, and unrelated repository contents are not packaged.
+
+From a checked-out Olympus repository, run:
+
+```sh
+node ./bin/olympus.mjs install --target /path/to/project
+```
+
+The target directory must already exist. Installation expands the full file plan and checks all destinations before writing. Identical existing files are preserved; any differing collision aborts the complete install with paths to resolve. Symlinks in the target path or destination tree are rejected. `AGENTS.md` is never installed: review `AGENTS.template.md` and merge desired guidance into the project's own instructions yourself.
+
+The package exposes the same installer as `olympus install --target /path/to/project`. After a release is published under its final npm name, the equivalent will be `npx --yes olympus-engineering-harness install --target /path/to/project`. The package name and license still need an explicit publication decision; no public release is implied by this repository setup.
+
+This package installs Codex and Claude bindings and Pi agent definitions. A Pi manifest does not install or configure the Pi subagent harness itself.
+
+## Package maintenance
+
+`package.json` controls the npm tarball allowlist. `package-manifest.json` controls files copied into a target project. The installer copies its listed runtime bindings, role guidance, and supporting Python utilities. Validation and evaluation files are included in the npm tarball for maintainer reference; they are not installed into target projects. Update both allowlists deliberately when adding distributable resources.
+
 **8 skill directories** (Zeus + seven specialists) shared by every runtime, plus thin runtime bindings:
 
 - Codex: `.codex/config.toml` + 8 specialist TOMLs (two Atlas profiles). Zeus is the main Codex session.

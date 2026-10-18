@@ -11,4 +11,6 @@ Olympus organizes software engineering through Zeus (coordinator) and seven spec
 
 The source of truth for role behavior is in `.agents/skills/`. Runtime-specific bindings live under `.codex/`, `.claude/`, and `.agents/agents/`.
 
+To install the allowlisted resources into an existing project from this checkout, run `node ./bin/olympus.mjs install --target /path/to/project`. See [installation and package notes](INSTALL.md) for collision handling, package boundaries, and the future npx command.
+
 > Runtime configuration and guardrails are not substitutes for operating-system sandboxing. Review repository instructions before trusting execution.

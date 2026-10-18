@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "description": "Explicit installable Olympus resources. Paths are relative to the package root.",
+  "resources": [
+    ".agents/agents",
+    ".agents/skills",
+    ".claude/agents",
+    ".claude/hooks/olympus_guard.py",
+    ".claude/settings.json",
+    ".codex/agents",
+    ".codex/config.toml",
+    "AGENTS.template.md",
+    "AGENTS.integration.md",
+    "CLAUDE.md",
+    "ENGINEERING-PROTOCOL.md",
+    "MIGRATION.md",
+    "OLYMPUS.md",
+    "ZEUS-EVALUATION.md",
+    "ZEUS-START.md",
+    "tools/build_claude_agents.py",
+    "tools/migrate_legacy.py",
+    "tools/olympus_models.py",
+    "tools/validate_package.py"
+  ],
+  "protected": ["AGENTS.md"]
+}
