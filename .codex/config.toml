@@ -1,0 +1,8 @@
+# Olympus v1.2 default root agent (Zeus). Loaded only for trusted projects.
+# IMPORTANT: Merge with existing .codex/config.toml; do not overwrite other settings.
+model = "gpt-6-luna"
+model_reasoning_effort = "medium"
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 2
