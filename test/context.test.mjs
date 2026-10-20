@@ -1,13 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { discoverContexts, inspectContext, loadContext, pruneContexts, saveContext } from "../src/context.mjs";
 import { hash, observeGit } from "../src/state-primitives.mjs";
 
 const git = (root, ...args) => execFileSync("git", ["-C", root, ...args], { stdio: "ignore" });
+const gitText = (root, ...args) => execFileSync("git", ["-C", root, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+async function exists(file) { try { await access(file); return true; } catch (error) { if (error.code === "ENOENT") return false; throw error; } }
 
 async function project(t, appContent = "application bytes\n") {
   const root = await mkdtemp(path.join(os.tmpdir(), "olympus-context-"));
@@ -42,6 +44,35 @@ function payload(id, overrides = {}) {
 
 async function save(root, value) {
   return saveContext(root, Buffer.from(JSON.stringify(value)));
+}
+
+async function addRetirement(root, { id = "GRAVE-901", beforePath = "app.txt", afterPath = null, replacement = null, beforeBlobOverride = null, name = "Retired app implementation" } = {}) {
+  const beforeBlob = beforeBlobOverride ?? gitText(root, "rev-parse", `HEAD:${beforePath}`);
+  let afterBlob = null;
+  if (replacement !== null) {
+    const filePath = path.join(root, afterPath);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, replacement);
+    afterBlob = gitText(root, "hash-object", "--", afterPath);
+  } else await rm(path.join(root, beforePath), { force: true });
+  const record = {
+    schemaVersion: 1,
+    id,
+    name,
+    originalFunction: "Previously provided the checkpointed implementation.",
+    reason: "Replaced during the verified retirement commit.",
+    evidence: { task: "knowledge/task.md", audit: "knowledge/audit.md", hadesReport: "knowledge/hades.md" },
+    successor: "Current implementation",
+    files: [{ beforePath, beforeBlob, afterPath, afterBlob, symbols: ["legacyHandler"] }],
+    recoveryRisks: ["Historical dependencies may no longer apply."],
+    restorationSteps: ["Review current contracts before any reintegration."],
+  };
+  const registry = path.join(root, "knowledge", "graveyard");
+  await mkdir(registry, { recursive: true });
+  await writeFile(path.join(registry, `${id}.json`), `${JSON.stringify(record, null, 2)}\n`);
+  git(root, "add", "-A", "--", beforePath, ...(afterPath ? [afterPath] : []), `knowledge/graveyard/${id}.json`);
+  git(root, "commit", "-qm", "retire checkpointed implementation");
+  return record;
 }
 
 async function contextBytes(root) {
@@ -247,6 +278,98 @@ test("load reconciles changed references, work state, branch, age, and invalidat
   await writeFile(path.join(stagedProject, "app.txt"), "staged content\n");
   git(stagedProject, "add", "app.txt");
   assert.ok((await loadContext(stagedProject, "staged-a")).reasons.includes("work_fingerprint_mismatch"));
+});
+
+test("explains a checkpointed file deletion from its committed Graveyard retirement without restoring it", async (t) => {
+  const root = await project(t);
+  const before = await observeGit(root);
+  const saved = await save(root, payload("graveyard-deletion", {
+    artifacts: [{ path: "app.txt", purpose: "implementation input" }],
+    tests: [{ command: "node --test", executedAt: new Date().toISOString(), outcome: "PASS", artifacts: ["app.txt"], head: before.head, workFingerprint: before.workFingerprint }],
+  }));
+  const checkpointBytes = await readFile(saved.file);
+  const originalBytes = await readFile(path.join(root, "app.txt"));
+  await addRetirement(root);
+  assert.equal(await exists(path.join(root, "app.txt")), false);
+  const loaded = await loadContext(root, "graveyard-deletion");
+  assert.equal(loaded.status, "RECONCILIATION_REQUIRED");
+  assert.ok(loaded.reasons.some((reason) => reason.startsWith("artifact_missing_or_unavailable:app.txt")));
+  assert.deepEqual(loaded.historicalTests, [0]);
+  assert.deepEqual(loaded.invalidatedReviews, []);
+  assert.equal(loaded.graveyard.status, "MATCHES");
+  assert.deepEqual(loaded.graveyard.matches.map(({ id, path: refPath, reason, successor, traceStatus }) => ({ id, path: refPath, reason, successor, traceStatus })), [{
+    id: "GRAVE-901", path: "app.txt", reason: "Replaced during the verified retirement commit.", successor: "Current implementation", traceStatus: "BURIED",
+  }]);
+  assert.equal(await exists(path.join(root, "app.txt")), false);
+  assert.deepEqual(await readFile(saved.file), checkpointBytes);
+  assert.deepEqual(originalBytes.toString(), "application bytes\n");
+});
+
+test("reports an unavailable retirement trace without treating the Graveyard hint as proof", async (t) => {
+  const root = await project(t);
+  await save(root, payload("graveyard-trace-unavailable", { artifacts: [{ path: "app.txt", purpose: "source" }] }));
+  await addRetirement(root, { id: "GRAVE-904", beforeBlobOverride: "0".repeat(40) });
+  const loaded = await loadContext(root, "graveyard-trace-unavailable");
+  assert.equal(loaded.status, "RECONCILIATION_REQUIRED");
+  assert.equal(loaded.graveyard.matches.length, 1);
+  assert.equal(loaded.graveyard.matches[0].traceStatus, "TRACE_UNAVAILABLE");
+  assert.ok(loaded.graveyard.matches[0].traceReason);
+  assert.equal(await exists(path.join(root, "app.txt")), false);
+});
+
+test("explains a partial-symbol retirement for a changed file while leaving unrelated entries unmatched", async (t) => {
+  const partialRoot = await project(t);
+  const observed = await observeGit(partialRoot);
+  await save(partialRoot, payload("graveyard-partial", { artifacts: [{ path: "app.txt", purpose: "source" }] }));
+  await addRetirement(partialRoot, { afterPath: "app.txt", replacement: "replacement with another implementation\n" });
+  const partial = await loadContext(partialRoot, "graveyard-partial");
+  assert.equal(partial.status, "RECONCILIATION_REQUIRED");
+  assert.equal(partial.graveyard.matches[0].traceStatus, "BURIED");
+  assert.deepEqual(partial.graveyard.matches[0].partialSymbols, ["legacyHandler"]);
+  assert.deepEqual(await readFile(path.join(partialRoot, "app.txt"), "utf8"), "replacement with another implementation\n");
+  assert.notEqual(partial.current.head, observed.head);
+
+  const unrelatedRoot = await project(t);
+  await writeFile(path.join(unrelatedRoot, "other.txt"), "other old content\n");
+  git(unrelatedRoot, "add", "other.txt");
+  git(unrelatedRoot, "commit", "-qm", "add unrelated file");
+  await save(unrelatedRoot, payload("graveyard-unrelated", { artifacts: [{ path: "app.txt", purpose: "source" }] }));
+  await addRetirement(unrelatedRoot, { id: "GRAVE-902", beforePath: "other.txt" });
+  await writeFile(path.join(unrelatedRoot, "app.txt"), "application changed independently\n");
+  const unrelated = await loadContext(unrelatedRoot, "graveyard-unrelated");
+  assert.equal(unrelated.status, "RECONCILIATION_REQUIRED");
+  assert.equal(unrelated.graveyard.status, "NO_MATCH");
+  assert.deepEqual(unrelated.graveyard.matches, []);
+});
+
+test("reports absent and invalid Graveyard metadata without writes and leaves unchanged references READY", async (t) => {
+  const root = await project(t);
+  await save(root, payload("graveyard-empty", { artifacts: [{ path: "app.txt", purpose: "source" }] }));
+  const unchanged = await loadContext(root, "graveyard-empty");
+  assert.equal(unchanged.status, "READY");
+  assert.equal(unchanged.graveyard.status, "NOT_NEEDED");
+  await rm(path.join(root, "app.txt"));
+  const absent = await loadContext(root, "graveyard-empty");
+  assert.equal(absent.status, "RECONCILIATION_REQUIRED");
+  assert.equal(absent.graveyard.status, "EMPTY");
+  assert.equal(await exists(path.join(root, "app.txt")), false);
+
+  const malformedRoot = await project(t);
+  await save(malformedRoot, payload("graveyard-malformed", { artifacts: [{ path: "app.txt", purpose: "source" }] }));
+  await writeFile(path.join(malformedRoot, "app.txt"), "changed source\n");
+  const registry = path.join(malformedRoot, "knowledge", "graveyard");
+  await mkdir(registry, { recursive: true });
+  await writeFile(path.join(registry, "GRAVE-903.json"), '{"schemaVersion":1,"id":"GRAVE-903","files":[{"beforePath":"../../outside"}]}\n');
+  const checkpointFile = path.join(malformedRoot, ".olympus", "context", "graveyard-malformed.json");
+  const checkpointBytes = await readFile(checkpointFile);
+  const malformed = await loadContext(malformedRoot, "graveyard-malformed");
+  assert.equal(malformed.status, "RECONCILIATION_REQUIRED");
+  assert.equal(malformed.graveyard.status, "INVALID");
+  assert.deepEqual(malformed.graveyard.issues, [{ id: "GRAVE-903", status: "INVALID", reasonCode: "graveyard_record_invalid" }]);
+  assert.ok(malformed.reasons.includes("graveyard_lookup_incomplete"));
+  assert.equal(await readFile(path.join(malformedRoot, "app.txt"), "utf8"), "changed source\n");
+  assert.deepEqual(await readFile(checkpointFile), checkpointBytes);
+  assert.equal(await exists(path.join(malformedRoot, "outside")), false);
 });
 
 test("discovery NONE is read-only; schema failures are bounded; failed successor saves preserve checkpoints", async (t) => {

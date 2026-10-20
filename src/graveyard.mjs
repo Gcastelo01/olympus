@@ -7,6 +7,7 @@ import { assertNoSensitiveContent, LIMITS, parseBoundedJson, resolveContained, v
 const ID = /^GRAVE-[0-9]{3,6}$/;
 const OID = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/;
 const MAX_RECORDS = 500;
+const MAX_REFERENCE_SCAN = 64;
 const MAX_HISTORY = 20_000;
 const MAX_FILES = 32;
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -245,6 +246,55 @@ export async function validateGraveyard(root, id) {
     : results.some((item) => item.status === "TRACE_UNAVAILABLE") ? "TRACE_UNAVAILABLE"
       : results.some((item) => item.status === "PENDING") ? "PENDING" : "OK";
   return { status, records: results };
+}
+
+export async function explainRetiredReferences(root, references) {
+  if (!Array.isArray(references) || references.length > 32) throw new Error("Invalid Graveyard reference query");
+  const byPath = new Map();
+  for (const item of references) {
+    if (!item || Array.isArray(item) || Object.keys(item).some((key) => !["path", "observed"].includes(key)) || typeof item.path !== "string" || !["missing", "changed"].includes(item.observed)) throw new Error("Invalid Graveyard reference query");
+    ref(item.path, "checkpoint reference path");
+    byPath.set(item.path, item.observed);
+  }
+  if (!byPath.size) return { status: "NOT_NEEDED", matches: [], issues: [] };
+
+  let ids;
+  try { ids = await listRecordIds(await projectRoot(root)); }
+  catch { return { status: "UNAVAILABLE", matches: [], issues: [{ status: "INVALID", reasonCode: "graveyard_registry_unavailable" }] }; }
+  if (!ids.length) return { status: "EMPTY", matches: [], issues: [] };
+
+  const matches = [];
+  const issues = [];
+  let truncated = ids.length > MAX_REFERENCE_SCAN;
+  if (truncated) issues.push({ status: "UNAVAILABLE", reasonCode: "graveyard_scan_limit_exceeded" });
+  for (const id of ids.slice(0, MAX_REFERENCE_SCAN)) {
+    let record;
+    try { record = await loadRecord(root, id); }
+    catch {
+      if (issues.length < 32) issues.push({ id, status: "INVALID", reasonCode: "graveyard_record_invalid" });
+      else truncated = true;
+      continue;
+    }
+    const descriptors = record.value.files.filter((file) => byPath.has(file.beforePath));
+    if (!descriptors.length) continue;
+    const trace = await traceRecord(root, record);
+    for (const descriptor of descriptors) {
+      if (matches.length >= 64) { truncated = true; break; }
+      matches.push({
+        path: descriptor.beforePath,
+        observed: byPath.get(descriptor.beforePath),
+        id: record.id,
+        reason: record.value.reason,
+        successor: record.value.successor ?? null,
+        traceStatus: trace.status,
+        traceReason: trace.reason ?? null,
+        partialSymbols: descriptor.afterPath !== null ? descriptor.symbols : [],
+      });
+    }
+    if (truncated && matches.length >= 64) break;
+  }
+  const status = truncated ? "PARTIAL" : issues.length ? (matches.length ? "PARTIAL" : "INVALID") : matches.length ? "MATCHES" : "NO_MATCH";
+  return { status, matches, issues, truncated };
 }
 
 export async function listGraveyard(root, query) {

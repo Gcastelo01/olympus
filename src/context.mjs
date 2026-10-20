@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
 import { lstat, mkdir, open, readFile, readdir, realpath, unlink } from "node:fs/promises";
 import path from "node:path";
+import { explainRetiredReferences } from "./graveyard.mjs";
 import { LIMITS, hash, observeGit, observeGitIdentity, parseBoundedJson, readSafeReference, resolveContained, validateId, validateRelativePath, writeExclusive } from "./state-primitives.mjs";
 
 export const CONTEXT_DIRECTORY = ".olympus/context";
@@ -400,7 +401,7 @@ export async function loadContext(root, id, { maxAgeDays = DEFAULT_MAX_AGE_DAYS 
 
   let current;
   try { current = await observeGit(root); }
-  catch { return { status: "RECONCILIATION_REQUIRED", reasons: [...reasons, "current_git_state_unavailable"], checkpoint, bootstrap: safeBootstrap(id), historicalTests: checkpoint.tests.map((_, index) => index), invalidatedReviews: checkpoint.reviews.filter((review) => review.verdict === "PASS").map((_, index) => index) }; }
+  catch { return { status: "RECONCILIATION_REQUIRED", reasons: [...reasons, "current_git_state_unavailable"], checkpoint, bootstrap: safeBootstrap(id), historicalTests: checkpoint.tests.map((_, index) => index), invalidatedReviews: checkpoint.reviews.filter((review) => review.verdict === "PASS").map((_, index) => index), graveyard: { status: "UNAVAILABLE", matches: [], issues: [{ status: "UNAVAILABLE", reasonCode: "current_git_state_unavailable" }] } }; }
   const storedProject = checkpoint.project;
   if (current.projectId !== storedProject.projectId || current.identityProvenance !== storedProject.identityProvenance) reasons.push("project_identity_mismatch");
   if (current.historyAnchor !== storedProject.historyAnchor) reasons.push("project_history_anchor_mismatch");
@@ -409,18 +410,25 @@ export async function loadContext(root, id, { maxAgeDays = DEFAULT_MAX_AGE_DAYS 
   if (current.workFingerprint !== storedProject.workFingerprint) reasons.push("work_fingerprint_mismatch");
 
   const changedArtifacts = new Set();
+  const changedReferences = [];
   for (const artifact of checkpoint.artifacts) {
     try {
       const observed = await readSafeReference(current.root, artifact.path);
       if (observed.digest !== artifact.digest) {
         changedArtifacts.add(artifact.path);
+        changedReferences.push({ path: artifact.path, observed: "changed" });
         reasons.push(`artifact_changed:${artifact.path}`);
       }
     } catch {
       changedArtifacts.add(artifact.path);
+      changedReferences.push({ path: artifact.path, observed: "missing" });
       reasons.push(`artifact_missing_or_unavailable:${artifact.path}`);
     }
   }
+  let graveyard;
+  try { graveyard = await explainRetiredReferences(current.root, changedReferences); }
+  catch { graveyard = { status: "UNAVAILABLE", matches: [], issues: [{ status: "UNAVAILABLE", reasonCode: "graveyard_lookup_failed" }] }; }
+  if (["INVALID", "PARTIAL", "UNAVAILABLE"].includes(graveyard.status)) reasons.push("graveyard_lookup_incomplete");
   checkpoint.tests.forEach((item, index) => {
     const historical = item.head !== current.head || item.workFingerprint !== current.workFingerprint || Date.parse(item.executedAt) > now + 60_000 || item.artifacts.some((artifact) => changedArtifacts.has(artifact));
     if (historical) historicalTests.push(index);
@@ -439,6 +447,7 @@ export async function loadContext(root, id, { maxAgeDays = DEFAULT_MAX_AGE_DAYS 
     current: { projectId: current.projectId, identityProvenance: current.identityProvenance, historyAnchor: current.historyAnchor, branch: current.branch, head: current.head, workFingerprint: current.workFingerprint, ignoredFilesExcluded: current.ignoredFilesExcluded, ignoredFilesNote: current.ignoredFilesNote },
     historicalTests,
     invalidatedReviews,
+    graveyard,
     bootstrap: safeBootstrap(id),
     handoffMode: "SIMULATED_MANUAL",
   };
