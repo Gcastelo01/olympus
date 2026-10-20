@@ -28,7 +28,11 @@
     "tools/build_claude_agents.py",
     "tools/migrate_legacy.py",
     "tools/olympus_models.py",
-    "tools/validate_package.py"
+    "tools/validate_package.py",
+    "templates/setup-olympus.sh",
+    "templates/setup-olympus.ps1",
+    "templates/setup-olympus.cmd",
+    "templates/bootstrap-user.sh"
   ],
   "engines": { "node": ">=18" }
 }

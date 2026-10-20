@@ -9,6 +9,10 @@ models={r:PINS[r] for r in SPECIALISTS}
 skills=({*models}-{'atlas-critical'})|{'zeus'}
 legacy={'blueprint','cartographer','forge','sentinel','lorekeeper','harbor','harbor-critical'}
 fail=[]
+package=json.loads((root/'package.json').read_text())
+for launcher in ('templates/setup-olympus.sh','templates/setup-olympus.ps1','templates/setup-olympus.cmd','templates/bootstrap-user.sh'):
+    if launcher not in package.get('files',[]): fail.append('Installer launcher missing from package files: '+launcher)
+    if not (root/launcher).is_file(): fail.append('Missing installer launcher '+launcher)
 for r in sorted(skills):
     p=root/'.agents/skills'/r/'SKILL.md'
     if not p.is_file(): fail.append('Missing skill '+str(p));continue
