@@ -5,7 +5,7 @@ import path from "node:path";
 
 export const LIMITS = Object.freeze({ jsonBytes: 64 * 1024, referenceBytes: 256 * 1024, references: 32, gitOutputBytes: 2 * 1024 * 1024, gitTimeoutMs: 5_000, files: 4_000, totalBytes: 32 * 1024 * 1024 });
 const SECRET_PATH = /(^|\/)(\.env(?:\.[^/]*)?|id_(?:rsa|dsa|ecdsa|ed25519)|[^/]*(?:credential|secret|token|private[-_]?key)[^/]*)(\/|$)/i;
-const SECRET_VALUE = /(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*['"]?[^\s'";,]{8,}|\b(?:sk|gh[pousr]|xox[baprs])-[A-Za-z0-9_-]{16,})/i;
+const SECRET_VALUE = /(?:-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*['"]?[^\s'";,]{8,}|\b(?:sk|xox[baprs])-[A-Za-z0-9_-]{16,}|\bgh[pousr][_-][A-Za-z0-9_-]{16,}\b|\bgithub_pat_[A-Za-z0-9_]{16,}\b|\bauthorization['"]?\s*:\s*['"]?\s*bearer\s+[A-Za-z0-9._~+/-]{8,}={0,})/i;
 const TRANSIENT = [".olympus/context", ".olympus/exhumed"];
 
 export function hash(value) { return `sha256:${createHash("sha256").update(value).digest("hex")}`; }
@@ -15,24 +15,31 @@ export function assertNoSensitiveContent(value) {
   if (SECRET_VALUE.test(text)) throw new Error("Content appears to contain sensitive material");
   const sensitiveJsonField = /"(?:password|api[_-]?key|access[_-]?token|client[_-]?secret|private[-_]?key)"\s*:\s*"((?:\\.|[^"\\])*)"/ig;
   if ([...text.matchAll(sensitiveJsonField)].some((match) => match[1].length > 0)) throw new Error("Content appears to contain sensitive material");
-  // Structured JSON often places a value after a quoted key, so raw-text
-  // patterns alone do not reliably recognize it. Never include the value in
-  // an error or diagnostic.
+
+  // This heuristic rejects recognizable patterns; it cannot identify every secret format.
   let parsed;
   try { parsed = JSON.parse(text); } catch { return; }
-  const visit = (item) => {
+  const bearerValue = /^\s*Bearer\s+[A-Za-z0-9._~+/-]{8,}={0,}/i;
+  function visit(item) {
     if (typeof item === "string") {
       if (SECRET_VALUE.test(item)) throw new Error("Content appears to contain sensitive material");
       return;
     }
-    if (Array.isArray(item)) return item.forEach(visit);
     if (!item || typeof item !== "object") return;
-    for (const [key, value] of Object.entries(item)) {
-      if (/password|api[_-]?key|access[_-]?token|client[-_]?secret|private[-_]?key/i.test(key)
-        && value !== null && value !== "") throw new Error("Content appears to contain sensitive material");
-      visit(value);
+    if (Array.isArray(item)) {
+      item.forEach(visit);
+      return;
     }
-  };
+    for (const [key, child] of Object.entries(item)) {
+      if (/password|api[_-]?key|access[_-]?token|client[_-]?secret|private[-_]?key/i.test(key) && child !== null && child !== "") {
+        throw new Error("Content appears to contain sensitive material");
+      }
+      if (/^authorization$/i.test(key) && typeof child === "string" && bearerValue.test(child)) {
+        throw new Error("Content appears to contain sensitive material");
+      }
+      visit(child);
+    }
+  }
   visit(parsed);
 }
 
@@ -154,6 +161,31 @@ export function sanitizeProjectIdentity(remote) {
   const repoPath = scp[3].replace(/^\/+/, "").replace(/\/+$/, "");
   if (!host.includes(".") || !repoPath || repoPath.split("/").some((part) => !part || part === "." || part === "..")) return undefined;
   return `ssh://${host}/${repoPath}`;
+}
+
+// Lightweight identity observation for deterministic checkpoint discovery. It
+// deliberately avoids status/index and source-tree fingerprint scans; load
+// performs the full observeGit reconciliation before recovered work is used.
+export async function observeGitIdentity(projectRoot) {
+  const root = await realpath(projectRoot);
+  const top = git(root, ["rev-parse", "--show-toplevel"]).toString("utf8").trim();
+  if (await realpath(top) !== root) throw new Error("Project root must be the Git worktree root");
+  const head = git(root, ["rev-parse", "--verify", "HEAD^{commit}"]).toString("utf8").trim();
+  const branch = git(root, ["symbolic-ref", "--quiet", "--short", "HEAD"], { allowExitOne: true }).toString("utf8").trim() || "DETACHED";
+  const remote = git(root, ["config", "--get", "remote.origin.url"], { maxBuffer: 4096, allowExitOne: true }).toString("utf8").trim() || undefined;
+  const roots = git(root, ["rev-list", "--max-parents=0", "HEAD"], { maxBuffer: 16 * 1024 }).toString("utf8").trim().split(/\s+/).filter(Boolean).sort();
+  if (!roots.length) throw new Error("Git history anchor is unavailable");
+  const historyAnchor = roots.join(",");
+  const sanitizedRemote = sanitizeProjectIdentity(remote);
+  const identityBasis = sanitizedRemote ? `${sanitizedRemote}\n${historyAnchor}` : `local-history\n${historyAnchor}`;
+  return {
+    root,
+    projectId: hash(identityBasis),
+    identityProvenance: sanitizedRemote ? "remote-and-history" : "local-history-weaker",
+    historyAnchor,
+    branch,
+    head,
+  };
 }
 
 export async function observeGit(projectRoot) {

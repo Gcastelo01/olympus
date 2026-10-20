@@ -6,6 +6,8 @@
   "bin": { "olympus": "./bin/olympus.mjs" },
   "files": [
     "bin/olympus.mjs",
+    "src/state-primitives.mjs",
+    "src/context.mjs",
     "src/installer.mjs",
     "package-manifest.json",
     "README.md",

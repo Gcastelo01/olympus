@@ -65,6 +65,31 @@ test("rejects secret-looking references without including values in errors", asy
   assert.equal(sanitizeProjectIdentity("ssh://bad host/org/repo"), undefined);
 });
 
+test("screens recognizable GitHub and bearer credentials in text, escaped JSON, and artifacts without echoing values", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "olympus-secret-patterns-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const values = [
+    "ghp_AUDIT_FAKE_TOKEN_1234567890",
+    "gho_AUDIT_FAKE_TOKEN_1234567890",
+    "ghu_AUDIT_FAKE_TOKEN_1234567890",
+    "ghs_AUDIT_FAKE_TOKEN_1234567890",
+    "ghr_AUDIT_FAKE_TOKEN_1234567890",
+    "github_pat_AUDIT_FAKE_TOKEN_1234567890",
+    "Authorization: Bearer AUDIT_FAKE_TOKEN_1234567890",
+  ];
+  for (const value of values) {
+    assert.throws(() => parseBoundedJson(JSON.stringify({ objective: value })), (error) => !error.message.includes(value));
+    await writeFile(path.join(root, "artifact.txt"), value);
+    await assert.rejects(readSafeReference(root, "artifact.txt"), (error) => !error.message.includes(value));
+  }
+
+  const escapedToken = String.raw`{"objective":"ghp\u005fAUDIT_FAKE_TOKEN_1234567890"}`;
+  assert.throws(() => parseBoundedJson(escapedToken), (error) => !error.message.includes("AUDIT_FAKE_TOKEN_1234567890"));
+  const escapedBearer = String.raw`{"Authorization":"\u0042earer AUDIT_FAKE_TOKEN_1234567890"}`;
+  assert.throws(() => parseBoundedJson(escapedBearer), (error) => !error.message.includes("AUDIT_FAKE_TOKEN_1234567890"));
+  assert.deepEqual(parseBoundedJson('{"objective":"GitHub documents github_pat_ token formats"}'), { objective: "GitHub documents github_pat_ token formats" });
+});
+
 test("fingerprint detects unstaged, staged, untracked and same-status content edits", async (t) => {
   const root = await repository(t);
   const first = await observeGit(root);
