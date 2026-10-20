@@ -1,6 +1,6 @@
 # 04-hades-integration — Integrated Hades and distributable capabilities
 
-- Status: READY_TO_COMMIT
+- Status: DONE
 - Contract: [Athena READY](../../architecture/hermes-hades.md).
 - Prerequisites: ST02-T02 and ST03-T02.
 - Tasks: [ST04-T01](tasks/ST04-T01.md).
@@ -25,4 +25,4 @@ Startup integration includes canonical Zeus→Hermes first-turn references for C
 
 ## Current evidence
 
-ST04-T01 implementation, documentation and focused security assessment are recorded. Final Argus PASS applies to full snapshot `81b4dabf12a7e3f86f08a938db37a1b175daca52c169030959ae5b59b261b843` against base `ec44ae8`, with no blocking findings. Authorized scoped commit remains pending; this stage is not DONE.
+ST04-T01 implementation, documentation and focused security assessment are recorded. Final Argus PASS applies to full snapshot `81b4dabf12a7e3f86f08a938db37a1b175daca52c169030959ae5b59b261b843` against base `ec44ae8`, with no blocking findings. Implementation committed as `4522f3c43198c25e8a6733bd59e2ae3bf2a712f8` on `feat/hermes-hades`; worktree was verified clean before this later status-only update. Stage 04 is DONE; push/PR remain Stage 05 delivery work.

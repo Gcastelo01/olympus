@@ -25,4 +25,4 @@ Security/docs/final Argus include discovery lineage, metadata privacy, checkpoin
 
 ## Current evidence
 
-ST05-T01 has Aegis security PASS at the recorded reassessment hashes; ST05-T02 documentation and validation work is complete. Final Argus PASS applies to full snapshot `81b4dabf12a7e3f86f08a938db37a1b175daca52c169030959ae5b59b261b843` against base `ec44ae8`, with no blocking findings. Remaining commits, feature-branch push and PR are pending; the stage stays IN_PROGRESS. Live runtime and unavailable platform checks remain NOT_VERIFIED.
+ST05-T01 has Aegis security PASS at the recorded reassessment hashes; ST05-T02 documentation and validation work is complete. Final Argus PASS applies to full snapshot `81b4dabf12a7e3f86f08a938db37a1b175daca52c169030959ae5b59b261b843` against base `ec44ae8`, with no blocking findings. Implementation commit `4522f3c43198c25e8a6733bd59e2ae3bf2a712f8` is recorded on `feat/hermes-hades`, verified clean before this later status-only update. Feature-branch push and PR remain pending; the stage stays IN_PROGRESS. Live runtime and unavailable platform checks remain NOT_VERIFIED.
