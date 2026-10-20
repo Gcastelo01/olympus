@@ -6,7 +6,7 @@ The current npm package identity is `olympus-engineering-harness@1.2.0`; its exe
 
 The npm package and GitHub release have not been published. Local checkout installation is the current path. Publishing to npm and creating a GitHub release are separate maintainer operations. There is no Python package or `pipx` installer.
 
-Contents: [project installation](#install-into-a-project), [package contents](#package-maintenance), [manual source archive](#manual-install-from-a-source-archive), [Codex](#codex-cli), [Claude Code](#claude-code), [Pi](#pi), [upgrades](#upgrade-from-olympus-v11), [validation](#validation-and-publication), [troubleshooting](#troubleshooting).
+Contents: [project installation](#install-into-a-project), [update modes](#update-modes-and-installation-state), [user installation](#install-for-a-user), [setup launchers](#setup-launchers), [package contents](#package-maintenance), [manual source archive](#manual-install-from-a-source-archive), [Codex](#codex-cli), [Claude Code](#claude-code), [Pi](#pi), [upgrades](#upgrade-from-olympus-v11), [validation](#validation-and-publication), [troubleshooting](#troubleshooting).
 
 ## Install into a project
 
@@ -18,16 +18,22 @@ From a checked-out Olympus repository, run:
 node ./bin/olympus.mjs install --target /path/to/project
 ```
 
-The target directory must already exist. Use an absolute path or a path relative to your current working directory; quote paths containing spaces. `--target` is required. Installation expands the complete resource list and checks every planned destination before writing:
+The target directory must already exist. Use an absolute path or a path relative to your current working directory; quote paths containing spaces. `--target` is required for project scope. Installation expands the complete resource list and checks every planned destination before writing:
 
 - Existing files with identical bytes are preserved. Missing files and their parent directories are created.
-- Any differing file aborts the entire preflight with the conflicting paths, before any installation writes. Existing directories where files are expected, or files where parent directories are needed, also cause failure.
+- In default mode, any differing file aborts the entire preflight with the conflicting paths, before any installation writes. Existing directories where files are expected, or files where parent directories are needed, also cause failure.
 - Symlinks in the target directory's ancestry, planned destination paths, or source resources are rejected. Unrelated destination paths are not scanned.
 - `AGENTS.md` is protected and never copied. Review `AGENTS.template.md` and `AGENTS.integration.md`, then create or merge the target project's instructions yourself. In particular, `CLAUDE.md` imports that project-owned `AGENTS.md`.
 
-There is no `--force`, merge, uninstall, or upgrade mode. To resolve a collision, review and back up the existing content, then manually merge or move the conflicting file before retrying. A repeat install preserves unchanged files.
+By default, a differing file aborts the whole preflight. Review and back up the listed files, merge or move them, then retry. To update an existing Olympus installation from a newer Olympus checkout, add `--update`:
 
-Preflight is not a filesystem transaction. A later copy, permission, disk-space, or concurrent filesystem failure can leave some newly copied files behind; there is no rollback. Inspect the target after such a failure. The CLI reports `Installed <path>` and `Preserved identical <path>` after success, exits with code 1 on installation failure, and uses code 2 for missing or invalid CLI arguments.
+```sh
+node ./bin/olympus.mjs install --target /path/to/project --update
+```
+
+Update replaces differing files from the package resource list, preserves byte-identical files and files outside that list, and still protects `AGENTS.md`. The installer cannot merge edits. Before updating, copy any customized managed files to a backup location outside the target's packaged resource paths. After updating, reapply or merge project-specific changes from that backup, especially for `CLAUDE.md`, `.codex/config.toml`, and `.claude/settings.json`.
+
+Preflight is not a filesystem transaction. A later write, permission, disk-space, or concurrent filesystem failure can leave some files replaced and installation state incomplete; there is no rollback. Each resource is written through a temporary file and rename, and the lockfile is written last. Inspect the target after a failure. The CLI reports installed, updated, upgraded, overwritten and identical paths as applicable, exits with code 1 on operational failure, and uses code 2 for missing or invalid CLI arguments. `--json` provides structured output for both commands.
 
 The package exposes the same installer as `olympus install --target /path/to/project`. **Only after npm publication under the current name and version**, the equivalent command will be:
 
@@ -39,13 +45,64 @@ Before publication, maintainers must confirm ownership/availability of the npm n
 
 This package installs Codex and Claude bindings and Pi agent definitions. A Pi manifest does not install or configure the Pi subagent harness itself.
 
+## Update modes and installation state
+
+A successful install records the package identity, version, scope and SHA-256 hashes of managed file contents in `.olympus/manifest.lock.json` under the selected root. A file is `identical` when it matches the current package, `outdated` when it differs from the package but still matches its recorded hash, and `modified` when it differs from both. Without a prior lockfile, every differing existing file is treated as modified.
+
+Choose one mode; `--update`, `--upgrade` and `--force` are mutually exclusive:
+
+| Mode | Differing managed files | Automatic backup |
+|---|---|---|
+| Default | Abort before writes if any are outdated or modified. | None |
+| `--update` | Replace all, including local edits and installations without a prior lockfile. | None; back up customizations yourself. |
+| `--upgrade` | Replace outdated files; any modified file aborts the entire preflight. | None |
+| `--force` | Replace outdated and modified files. | Modified files get an adjacent `<filename>.olympus-bak`. |
+
+Every mode creates missing files and preserves identical files. Force creates all required backups before replacing any managed resource, refuses to overwrite an existing backup, and rejects unsafe backup paths. Review or move old backups before another forced install. Modes do not merge edits, remove unmanaged files, or delete orphaned files previously recorded in the lockfile but no longer shipped. Orphans are reported; a successful install records only the current resource list.
+
+Check the selected root without changing files:
+
+```sh
+node ./bin/olympus.mjs check --target /path/to/project --json
+```
+
+`check` reports missing, identical, outdated, modified and orphan paths. It creates no directories, backups or lockfile. Exit code 0 means all current managed resources match; code 3 means at least one is missing, outdated or modified. Orphans and a missing lockfile alone do not produce code 3. Malformed lockfiles or unsafe paths produce code 1. Install modes cannot be passed to `check`.
+
+## Install for a user
+
+```sh
+node ./bin/olympus.mjs install --scope user
+node ./bin/olympus.mjs check --scope user --json
+```
+
+User scope uses the operating system home directory. To select another existing root, add `--home /path/to/home`; `--home` is valid only with `--scope user`, and user scope cannot be combined with `--target`. The same conflict and update modes apply. Its lockfile lives at `<home>/.olympus/manifest.lock.json`.
+
+This scope installs only `.agents/skills/`, `.agents/agents/`, `.codex/agents/`, `.claude/agents/` and `.claude/hooks/olympus_guard.py`. Codex and Claude agent skill references are rewritten to `~/.agents/skills/`; Claude agent hook commands reference `$HOME/.claude/hooks/olympus_guard.py`. Project configuration, settings, `CLAUDE.md`, instruction templates and tools are skipped. `--home` changes the installation root; it does not rewrite those references to an arbitrary absolute home path.
+
+User installation therefore does not configure the root session, project trust or runtime permissions. Review the runtime setup below, and use project scope when you need the packaged project configuration. `AGENTS.md` remains project-owned in both scopes.
+
+## Setup launchers
+
+The package includes optional launchers in `templates/`; project and user installation do not copy them to the target. Use them from the source checkout or unpacked package:
+
+```sh
+bash templates/setup-olympus.sh --skip-runtimes --project /path/to/project
+bash templates/bootstrap-user.sh /path/to/olympus-checkout
+```
+
+On Windows, use `templates/setup-olympus.ps1 -SkipRuntimes -Project C:\path\to\project` or the adjacent `.cmd` wrapper with the same arguments. The CMD wrapper pauses unless `OLYMPUS_NO_PAUSE=1` is set and returns the PowerShell exit status.
+
+The setup launchers check prerequisites and may install missing system tools through platform package managers. Without `--skip-runtimes` / `-SkipRuntimes`, they also attempt to install Claude Code and Codex CLI. Skipping runtimes still allows prerequisite installation. `--login` / `-Login` starts interactive sign-in afterward. These scripts can access the network and invoke elevated package managers; the direct Node CLI above only installs Olympus resources.
+
+Setup installs user resources first, then project resources if requested, using `--upgrade` for both. Existing modified resources therefore stop the install rather than being overwritten. They discover the adjacent checkout by default, or accept `--source` / `-Source` or `OLYMPUS_SOURCE` for a local checkout path or npm package specification. `bootstrap-user.sh` only runs the user installation with `--upgrade` and requires its source argument or `OLYMPUS_SOURCE`; it does not install prerequisites or runtimes. Registry-based use requires that the selected package actually be published. Launcher execution on the target platforms remains unverified.
+
 ## Package maintenance
 
 Two allowlists serve different purposes:
 
 | File | Controls |
 |---|---|
-| `package.json` → `files` | Contents offered to npm's tarball packer, including the CLI, installer implementation, manifest, `README.md`, `INSTALL.md`, runtime bindings, and support files. npm also applies its own packaging rules; inspect the resulting inventory. |
+| `package.json` → `files` | Contents offered to npm's tarball packer, including the CLI, installer implementation, manifest, `README.md`, `INSTALL.md`, runtime bindings, support files and the four `templates/` launchers. npm also applies its own packaging rules; inspect the resulting inventory. |
 | `package-manifest.json` → `resources` | Files/directories expanded recursively and copied into the target project by the installer. |
 | `package-manifest.json` → `protected` | Paths forbidden in the copy plan; currently `AGENTS.md`. |
 
@@ -56,7 +113,7 @@ The current installation resources are:
 - `AGENTS.template.md`, `AGENTS.integration.md`, `CLAUDE.md`, `ENGINEERING-PROTOCOL.md`, `MIGRATION.md`, `OLYMPUS.md`, `ZEUS-EVALUATION.md`, `ZEUS-START.md`.
 - `tools/build_claude_agents.py`, `tools/migrate_legacy.py`, `tools/olympus_models.py`, `tools/validate_package.py`.
 
-The npm tarball contains the installer and installation manual, but the target copy plan omits `bin/`, `src/`, both package manifests, `README.md`, and `INSTALL.md`. In particular, **the evaluation document and validator are copied into the target**. However, `tools/validate_package.py` requires `INSTALL.md`, so the installed resource set alone cannot satisfy that validator. Run it in the complete source checkout as described below. Update both allowlists deliberately when adding distributable resources.
+The npm tarball includes the installer, installation manual and four setup launchers. The target copy plan omits `bin/`, `src/`, `templates/`, both package manifests, `README.md`, and `INSTALL.md`. The installer creates its own `.olympus/manifest.lock.json` in addition to the copied resources. In particular, **the evaluation document and validator are copied into the target**. However, `tools/validate_package.py` requires `INSTALL.md`, so the installed resource set alone cannot satisfy that validator. Run it in the complete source checkout as described below. Update both allowlists deliberately when adding distributable resources.
 
 **8 skill directories** (Zeus + seven specialists) shared by every runtime, plus thin runtime bindings:
 
@@ -108,11 +165,11 @@ The installer copies `.agents/agents/` and the shared skills. The specialist pro
 
 ## Upgrade from Olympus v1.1
 
-For the runtime migration from v1.1, v1.2 adds Claude Code bindings and extends the skills' *execution profile* sections to list both runtimes. The existing upgrade guidance below covers those bindings; the npm installer follows the collision rules described above and does not automatically merge an older installation.
+For the runtime migration from v1.1, v1.2 adds Claude Code bindings and extends the skills' *execution profile* sections to list both runtimes. From a newer Olympus checkout, use the `--update` command above to copy those packaged resources into an existing project. The installer does not merge local edits.
 
-1. **Do not overwrite** existing `AGENTS.md`, `CLAUDE.md`, `.codex/config.toml` or `.claude/settings.json`. Merge them using `AGENTS.integration.md`.
-2. Copy `.claude/agents/`, `.claude/hooks/`, `tools/olympus_models.py`, `tools/build_claude_agents.py` and the updated `.agents/skills/`.
-3. If the project already has a `CLAUDE.md`, add the line `@AGENTS.md` at its top instead of replacing it.
+1. `AGENTS.md` is protected and never overwritten. Back up customized `CLAUDE.md`, `.codex/config.toml` and `.claude/settings.json` outside the target's packaged resource paths.
+2. Run `node ./bin/olympus.mjs install --target /path/to/project --update` to update differing packaged resources, including `.claude/agents/`, `.claude/hooks/`, the model tools and `.agents/skills/`, while preserving unrelated project files.
+3. Reapply or merge project-specific changes from the backup using `AGENTS.integration.md`. If the project already has a `CLAUDE.md`, add the line `@AGENTS.md` at its top instead of replacing the updated file.
 
 ## Changing a model pin
 
@@ -120,7 +177,7 @@ In the complete source checkout, edit `tools/olympus_models.py`, run `python3 to
 
 ## Validation and publication
 
-The packaging implementation received an independent Argus **PASS** before these documentation updates. An inventory preview using `npm pack --dry-run --json` listed **57 files**. This preview does not establish successful tarball installation, runtime routing, or registry publication. Packaging tests and an actual installer run have not been performed; these documentation changes do not add validation evidence for them.
+An earlier packaging implementation received an independent Argus **PASS**, and an earlier `npm pack --dry-run --json` preview listed 57 files. That evidence predates the current installer modes and added launchers; it does not validate the current tarball inventory or behavior. The current integration has been documented from static source inspection. Installer, launcher and platform execution have not been verified as part of this integration.
 
 Maintainers can inspect the source and tarball inventory from the complete checkout with:
 
@@ -138,7 +195,9 @@ To prepare a release, review the diff and both allowlists, choose the license, c
 | Symptom | Action |
 |---|---|
 | `Target directory does not exist` | Create or select the intended directory, then repeat the command with explicit `--target`. |
-| `Conflicting files found` | Review the listed files; back up and merge or move them before retrying. No files are copied when preflight detects conflicts. |
+| `Conflicting managed files found` | Review the paths. Use `--upgrade` for unchanged tracked resources, back up edits before `--update`, or review the automatic backup behavior before `--force`. No managed files are replaced when preflight detects conflicts. |
+| `Backup already exists` | Review and move the existing `.olympus-bak` file before retrying force; the installer refuses to overwrite it. |
+| Invalid lockfile or scope/package mismatch | Inspect `.olympus/manifest.lock.json` and confirm the selected root and scope. Update modes do not bypass lock validation. |
 | A symlink/path error | Use a physical target directory and ordinary files/directories at the planned paths. Review the reported path before changing it. |
 | A permission/copy failure | Inspect for a partial installation, correct the filesystem issue, then retry; already identical files are preserved. |
 | `python3` unavailable in Claude hooks | Install/configure Python separately so `python3` is on the runtime's `PATH`. |

@@ -19,7 +19,9 @@ node ./bin/olympus.mjs install --target /path/to/project
 
 Claude Code's write-scope hooks also require `python3`. Pi receives agent definitions; its subagent harness must be installed and configured separately. Review `AGENTS.template.md` and `AGENTS.integration.md` to prepare the target project's own `AGENTS.md`.
 
-The installer preserves identical files and aborts before copying when existing files differ or checked paths contain symlinks. It never copies `AGENTS.md`. See [installation and package notes](INSTALL.md) for the full inventory, runtime setup, troubleshooting, validation limits, and maintainer workflow.
+The installer preserves identical files and rejects differing files by default. Successful installs record managed content hashes in `.olympus/manifest.lock.json`. Use `--upgrade` to update unchanged tracked resources, `--update` to replace differences without backups, or `--force` to back up local edits before replacement. `check --target /path/to/project` reports drift without writes. It rejects symlinks on checked paths and never copies `AGENTS.md`.
+
+For user-level skills, agents and hooks, use `install --scope user`; project configuration still requires project setup. Optional setup launchers are packaged under `templates/`. See [installation and package notes](INSTALL.md) for the full inventory, runtime setup, troubleshooting, validation limits, and maintainer workflow.
 
 The npm package and GitHub release have not been published. The documented `npx` command becomes usable only after npm publication; `pipx` distribution is not implemented.
 
