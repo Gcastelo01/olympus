@@ -17,3 +17,15 @@ Navigation: [reassessment snapshot](assessments/2026-10-20-hermes-st02-t02-02/re
 Residual risk: the scanner recognizes specific patterns and cannot establish that arbitrary prose, unknown credential formats or obfuscated text contain no secrets. Review selected context before handoff. This limitation is not a guarantee of safe automatic disclosure to another provider.
 
 Unverified: live Codex/Claude/Pi handoff, destination model interpretation, Windows/macOS and Node 18; malicious concurrent directory replacement is outside Athena's trusted-worktree contract. No Hades, Graveyard, installer or whole-project security assessment is implied.
+
+## Graveyard ST03-T01 — reassessment 2026-10-20
+
+Current run: `2026-10-20-graveyard-st03-t01-02`, REASSESS of SEC-002/SEC-003 plus registry/CLI regression checks. Dirty working-tree snapshot on `8b881663e24261339728696816d4ffeaeec52a2d`; Linux, Node v24.18.0, Git 2.56.0.
+
+**0 open findings in this scoped assessment.** Historical findings remain CONFIRMED: one HIGH/P1 (SEC-003) and one MEDIUM/P2 (SEC-002), both now VERIFIED_FIXED on the snapshot hashes. There are no new critical/low/informational, probable or needs-validation findings. Prior Hermes findings and scope are unchanged.
+
+Independent safe/unsafe controls verified that replacement refs no longer substitute advertised historical content, and missing promisor blobs/trees do not invoke configured helpers or add objects through the protected commands. Explicit `--no-lazy-fetch` rejects unsupported Git builds instead of silently trusting an ignored environment setting. Native older Git was not executed. The absent registry returns empty list/search/validate results; missing IDs remain errors without registry creation.
+
+Current carried-forward coverage: **10 PASS / 0 FAIL / 3 PARTIAL / 2 NOT_TESTED / 1 NOT_APPLICABLE**. Only GV-02/GV-03 changed to PASS; selected regressions were repeated. Other environments, concurrent malicious ancestor replacement, partial-write faults and exhaustive resource/secret coverage retain their limitations. Repository visibility remains unverified; reports omit executable helper payloads and real credentials.
+
+[Current snapshot](assessments/2026-10-20-graveyard-st03-t01-02/report.md), [original snapshot](assessments/2026-10-20-graveyard-st03-t01/report.md), [SEC-002](findings/SEC-002.md), [SEC-003](findings/SEC-003.md), [coverage](coverage.md), [roadmap](roadmap.md). Argus final review is a separate gate.

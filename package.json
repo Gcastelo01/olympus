@@ -8,6 +8,7 @@
     "bin/olympus.mjs",
     "src/state-primitives.mjs",
     "src/context.mjs",
+    "src/graveyard.mjs",
     "src/installer.mjs",
     "package-manifest.json",
     "README.md",
