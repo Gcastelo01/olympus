@@ -125,9 +125,9 @@ export async function writeExclusive(root, relative, data, { mode = 0o600, maxBy
 
 function git(root, args, { maxBuffer = LIMITS.gitOutputBytes, timeout = LIMITS.gitTimeoutMs, allowExitOne = false } = {}) {
   try {
-    const env = { GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null" };
+    const env = { GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", GIT_NO_REPLACE_OBJECTS: "1", GIT_NO_LAZY_FETCH: "1", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null" };
     for (const key of ["PATH", "SYSTEMROOT", "WINDIR", "PATHEXT"]) if (process.env[key]) env[key] = process.env[key];
-    return execFileSync("git", ["-C", root, "--no-pager", "-c", "core.fsmonitor=false", "-c", "core.untrackedCache=false", ...args], { encoding: "buffer", stdio: ["ignore", "pipe", "pipe"], timeout, maxBuffer, windowsHide: true, env });
+    return execFileSync("git", ["-C", root, "--no-pager", "--no-lazy-fetch", "-c", "core.fsmonitor=false", "-c", "core.untrackedCache=false", ...args], { encoding: "buffer", stdio: ["ignore", "pipe", "pipe"], timeout, maxBuffer, windowsHide: true, env });
   } catch (error) {
     if (allowExitOne && error.status === 1) return Buffer.alloc(0);
     if (error.code === "ENOBUFS" || error.errno === "ENOBUFS") throw new Error("Git output exceeds size limit");

@@ -1,0 +1,51 @@
+[
+  {
+    "id": "dead-internal-helper",
+    "case": "internal-only candidate with positive unreachable evidence",
+    "observed": ["unexported symbol", "whole-repository references checked", "no dynamic registration found", "replacement behavior covered by test"],
+    "missing": [],
+    "recommendation": "REMOVAL_CANDIDATE"
+  },
+  {
+    "id": "ordinary-import",
+    "case": "ordinary cross-module reference",
+    "observed": ["static import from active route"],
+    "missing": [],
+    "recommendation": "KEEP"
+  },
+  {
+    "id": "dynamic-loader",
+    "case": "dynamic import by constructed name",
+    "observed": ["static search has no import reference", "loader constructs module path from runtime value"],
+    "missing": ["runtime values and production configuration"],
+    "recommendation": "NEEDS_INVESTIGATION"
+  },
+  {
+    "id": "framework-convention",
+    "case": "entry discovered by framework naming convention",
+    "observed": ["no direct source reference", "framework discovers directory by convention"],
+    "missing": [],
+    "recommendation": "KEEP"
+  },
+  {
+    "id": "external-consumer",
+    "case": "possible externally consumed package API",
+    "observed": ["no in-repository reference"],
+    "missing": ["external consumers and published API usage"],
+    "recommendation": "NEEDS_INVESTIGATION"
+  },
+  {
+    "id": "duplicate-with-migration",
+    "case": "duplicate implementation with positive replacement and compatibility evidence",
+    "observed": ["new implementation used by all known internal callers", "compatibility tests cover transition", "no framework or external entry point identified"],
+    "missing": [],
+    "recommendation": "REMOVAL_CANDIDATE"
+  },
+  {
+    "id": "absence-only",
+    "case": "only evidence is absence of static references",
+    "observed": ["static search returned no references"],
+    "missing": ["dynamic loading", "convention entry points", "external consumers", "production-only usage"],
+    "recommendation": "NEEDS_INVESTIGATION"
+  }
+]

@@ -1,0 +1,37 @@
+{
+  "date": "2026-10-20T22:59:27.618312+00:00",
+  "revision": "ec44ae815c0d869b111e463745cd1312df6cc1d0",
+  "branch": "feat/hermes-hades",
+  "snapshot": "dirty working tree",
+  "sha256": {
+    "src/state-primitives.mjs": "d4430d0ce9675b7f705695516b280cf632854c9df89421b6fba12aa70757fc41",
+    "src/context.mjs": "4960ddd8a23adb2ff585e31b38e9b2b2f4bca2471da36571e5084fcd6faf65b5",
+    "src/graveyard.mjs": "e9ef89fea28d21c190b6da29990767886c058ba5dec55f2749dfc762d9034101",
+    "src/installer.mjs": "6ea74b49f35d9a4be84147d4bc23c68e37ab036127fe0c04279f70b207a7ea1f",
+    "bin/olympus.mjs": "53f8a031586c4e4e01be71b7c3d1af8238087dd9599ef62ad1eb1127482f3961",
+    "test/state-primitives.test.mjs": "165dc622cbd0fa9369198713c6e72e26a5f3d445bc38dc4d966cd104f089813d",
+    "test/context.test.mjs": "cf5bdb05a2367a523271cbdfced7d34a01da7c9bb1dc9664d46fd9f30f78779d",
+    "test/graveyard.test.mjs": "9fddbd59438e8e4e5de4f79e50b259e3c90ee36ffc53c4e9733f88751d818add",
+    "test/hades-fixtures.test.mjs": "a555211f64965c2ba36eaa46d4f4e506637ff2125634564be2fba7a7f8e0a6ed",
+    "test/st04-installation.test.mjs": "448a672ca1be84b908dc2c55302d44704dc48dff102602487867598e38f2a13f",
+    ".agents/skills/hermes/SKILL.md": "907c3ccc031b6e628a46bc1daaa0712e8709bffd09a573ff188d051f03ed6ea7",
+    ".agents/skills/hades/SKILL.md": "421e05207f129d96930b1d5d705a337991b3a67f4cc8d58f5e4e73bd47e1daa1",
+    ".agents/skills/zeus/SKILL.md": "e7da88da8bc696c819e9964b6f32a508c826f80441be020550121a60ad67093a",
+    ".codex/agents/hades.toml": "e51862f2665e3a44e9ac11d3bf16322ef049b908d475d889d9f9abb1edad9ef0",
+    ".claude/agents/hades.md": "767fb1e25dac4ae029373beed3f25b01c090b4a03eb4468b120c5180594da26a",
+    ".agents/agents/hades.md": "48fbdde0cdff5c1ea316c6288efe567b5b5a1af33ea6e0633952bc0cdcf0b330",
+    "tools/build_claude_agents.py": "a7300a530edcff8a239dcab24f7cf86c34b676c0629381ec7c35bb5ee7e7de62",
+    "tools/olympus_models.py": "62c1cb62d30d4f02e71bbc7bdafc44072e69b64d80ebbb2a1377ad0242e78788",
+    "tools/validate_package.py": "3b07b631795475d2c13cef9e2398749799733f47a8c8c2ebfae36737b118b3fe"
+  },
+  "probes": {
+    "graveyard_fifo_exceeded_3s": true,
+    "synthetic_recognizable_git_branch_persisted": true,
+    "subsequent_checkpoint_load": "INVALID",
+    "hermes_missing_tree_invoked_configured_local_helper": true
+  },
+  "test_command": "node --test test/state-primitives.test.mjs test/context.test.mjs test/graveyard.test.mjs test/hades-fixtures.test.mjs test/st04-installation.test.mjs",
+  "test_exit": 0,
+  "test_runner_summary": "5 file-level tests, pass 5, fail 0",
+  "ephemeral_test_log": "/tmp/aegis-st05-tests.log"
+}

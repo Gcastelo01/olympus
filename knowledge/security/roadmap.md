@@ -57,3 +57,49 @@ No P0 containment action is indicated by local synthetic evidence. Other platfor
 ### Reassessment completion — 2026-10-20-graveyard-st03-t01-02
 
 SEC-003/T1 and SEC-002/T1 are VERIFIED by Aegis on [recorded hashes](assessments/2026-10-20-graveyard-st03-t01-02/report.md). Safe/unsafe blob/tree and replacement controls passed; final Graveyard suite passed. No new P0/P1 remediation task remains from this focused scope. Native older Git and other platform/fault-injection gaps remain untested, as listed in coverage. Do not infer final Argus approval or full-project certification.
+
+## ST03-T02 lookup delta — 2026-10-20
+
+[Focused assessment](assessments/2026-10-20-hermes-graveyard-st03-t02/report.md) established no new actionable finding or P0/P1 correction. No SEC task allocated. Proceed to Argus on the assessed diff. Live harness prompt handling, worst-case history performance and unsupported platforms remain explicitly unverified follow-up scope, not fabricated PASS or confirmed vulnerabilities. Prior tasks/lifecycles above are unchanged.
+
+## ST04-T01 profiles/bootstrap — 2026-10-20
+
+No new actionable security finding or SEC remediation task from the [focused assessment](assessments/2026-10-20-hades-hermes-st04-t01/report.md). Proceed to Argus. Final validation must separately establish or mark NOT_VERIFIED actual child model/tools, Pi explore enforcement, first-turn Hermes invocation and global-only nested skill resolution. The last item is a functional coverage limit, not a security vulnerability. Existing task statuses above remain unchanged.
+
+## ST05-T01 corrective work — 2026-10-20
+
+Current security gate CHANGES_REQUIRED; task order SEC-003/T2, then SEC-001/T2 and SEC-004/T1. Existing T1 historical verifications remain scoped; these new tasks cover the newly demonstrated paths. No P0 containment indicated. No new Athena design decision required because each task enforces accepted invariants.
+
+### SEC-003/T2 — Close Hermes implicit-fetch observation path
+
+- Status: VERIFIED; Priority: P1; finding: [SEC-003](findings/SEC-003.md), coverage F09.
+- Prerequisites: retain Graveyard SEC-003/T1 protections and current argument/environment/time/output bounds.
+- Scope: Git helpers in `src/state-primitives.mjs` and `src/context.mjs`, focused regression tests.
+- Invariant: all Hermes observations fail closed on missing history/objects without invoking transport helpers, fetching objects or honoring replacement objects.
+- Acceptance: benign local promisor helper remains uncalled for missing tree/history/blob cases; no object/state additions; normal history succeeds; unsupported Git fails before access; injected Git environment remains ignored; replacement refs cannot substitute identity/history.
+- Boundaries: no fetch/config mutation, no dependence on a silently ignored unsupported env variable, no broad refactor.
+- Verification: Hephaestus targeted tests, Aegis same independent helper probe, Argus exact final diff. Rollback must preserve refusal; disable affected operation rather than re-enable implicit fetch.
+
+### SEC-001/T2 — Screen generated checkpoint bytes before persistence
+
+- Status: VERIFIED; Priority: P2; finding: [SEC-001](findings/SEC-001.md), coverage F11.
+- Prerequisites: current input/JSON-decoded credential detection and exclusive writes.
+- Scope: final save pipeline in `src/context.mjs` and focused regression tests.
+- Invariant: generated Git metadata receives the same sensitive-content filtering as user input before state creation/write.
+- Acceptance: synthetic recognizable sensitive branch fails without echo or new checkpoint; predecessor survives; normal branch succeeds; existing raw/escaped input cases stay rejected.
+- Boundaries: retain heuristic disclosure limits; do not rewrite Git branch metadata or silently redact identity.
+- Verification: Aegis repeats final-byte metadata probe; Argus reviews. Rollback must keep fail-closed persistence.
+
+### SEC-004/T1 — Reject special Graveyard inputs without blocking
+
+- Status: VERIFIED; Priority: P2; finding: [SEC-004](findings/SEC-004.md), coverage F10.
+- Prerequisites: existing registry schema/path/byte checks.
+- Scope: `src/graveyard.mjs` registry reader and focused tests, including Hermes hint path.
+- Invariant: FIFO/device/directory/symlink input cannot block before regular-file validation; descriptor and size remain checked after opening.
+- Acceptance: supervised no-writer FIFO returns promptly; directory/symlink/oversize rejected; inspect/list/validate/exhume/hints report invalid/unavailable with no writes; ordinary regular records succeed. Explicit platform skip where FIFO unsupported.
+- Boundaries: standard library only; no application mutation or weakening of no-follow/exclusive guarantees.
+- Verification: Aegis repeats isolated FIFO probe, Argus exact diff. Rollback must preserve nonblocking refusal or disable affected reading.
+
+## ST05 reassessment completion — 2026-10-20
+
+SEC-003/T2, SEC-001/T2 and SEC-004/T1 are VERIFIED by [independent Aegis reassessment](assessments/2026-10-20-hermes-hades-st05-t01-02/report.md) at its exact dirty-snapshot hashes. The earlier CHANGES_REQUIRED statement records the pre-repair gate; the current security correction gate is PASS. No remaining P0/P1 corrective task is established by this reassessment. Preserve all residual NOT_VERIFIED boundaries and proceed to Argus final diff review.

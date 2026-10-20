@@ -3,7 +3,7 @@ import { constants as fsConstants } from "node:fs";
 import { lstat, mkdir, open, readFile, readdir, realpath, unlink } from "node:fs/promises";
 import path from "node:path";
 import { explainRetiredReferences } from "./graveyard.mjs";
-import { LIMITS, hash, observeGit, observeGitIdentity, parseBoundedJson, readSafeReference, resolveContained, validateId, validateRelativePath, writeExclusive } from "./state-primitives.mjs";
+import { assertNoSensitiveContent, LIMITS, hash, observeGit, observeGitIdentity, parseBoundedJson, readSafeReference, resolveContained, validateId, validateRelativePath, writeExclusive } from "./state-primitives.mjs";
 
 export const CONTEXT_DIRECTORY = ".olympus/context";
 export const DEFAULT_MAX_AGE_DAYS = 7;
@@ -206,13 +206,13 @@ function validateInput(input) {
 function checkpointPath(id) { return `${CONTEXT_DIRECTORY}/${validateId(id)}.json`; }
 
 function gitEnvironment() {
-  const env = { GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null" };
+  const env = { GIT_OPTIONAL_LOCKS: "0", GIT_TERMINAL_PROMPT: "0", GIT_NO_REPLACE_OBJECTS: "1", GIT_NO_LAZY_FETCH: "1", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null" };
   for (const key of ["PATH", "SYSTEMROOT", "WINDIR", "PATHEXT"]) if (process.env[key]) env[key] = process.env[key];
   return env;
 }
 
 function git(root, args, { allowExitOne = false } = {}) {
-  try { return execFileSync("git", ["-C", root, "--no-pager", "-c", "core.fsmonitor=false", "-c", "core.untrackedCache=false", ...args], { encoding: "buffer", stdio: ["ignore", "pipe", "pipe"], timeout: LIMITS.gitTimeoutMs, maxBuffer: LIMITS.gitOutputBytes, windowsHide: true, env: gitEnvironment() }); }
+  try { return execFileSync("git", ["-C", root, "--no-pager", "--no-lazy-fetch", "-c", "core.fsmonitor=false", "-c", "core.untrackedCache=false", ...args], { encoding: "buffer", stdio: ["ignore", "pipe", "pipe"], timeout: LIMITS.gitTimeoutMs, maxBuffer: LIMITS.gitOutputBytes, windowsHide: true, env: gitEnvironment() }); }
   catch (error) {
     if (allowExitOne && error.status === 1) return Buffer.alloc(0);
     throw new Error("Git project observation failed");
@@ -325,6 +325,7 @@ async function saveValidatedContext(root, inputBytes, recordSuccessful) {
   });
   const bytes = Buffer.from(`${JSON.stringify(checkpoint, null, 2)}\n`);
   if (bytes.length > CHECKPOINT_BYTES) throw new Error("Checkpoint exceeds 64 KiB limit");
+  assertNoSensitiveContent(bytes);
   await ensureContextDirectory(current.root);
   const relative = checkpointPath(checkpoint.id);
   const file = await writeExclusive(current.root, relative, bytes, { maxBytes: CHECKPOINT_BYTES });
@@ -401,7 +402,7 @@ export async function loadContext(root, id, { maxAgeDays = DEFAULT_MAX_AGE_DAYS 
 
   let current;
   try { current = await observeGit(root); }
-  catch { return { status: "RECONCILIATION_REQUIRED", reasons: [...reasons, "current_git_state_unavailable"], checkpoint, bootstrap: safeBootstrap(id), historicalTests: checkpoint.tests.map((_, index) => index), invalidatedReviews: checkpoint.reviews.filter((review) => review.verdict === "PASS").map((_, index) => index), graveyard: { status: "UNAVAILABLE", matches: [], issues: [{ status: "UNAVAILABLE", reasonCode: "current_git_state_unavailable" }] } }; }
+  catch { return { status: "RECONCILIATION_REQUIRED", reasons: [...reasons, "current_git_state_unavailable"], checkpoint, bootstrap: safeBootstrap(id), historicalTests: checkpoint.tests.map((_, index) => index), invalidatedReviews: checkpoint.reviews.flatMap((review, index) => review.verdict === "PASS" ? [index] : []), graveyard: { status: "UNAVAILABLE", matches: [], issues: [{ status: "UNAVAILABLE", reasonCode: "current_git_state_unavailable" }] } }; }
   const storedProject = checkpoint.project;
   if (current.projectId !== storedProject.projectId || current.identityProvenance !== storedProject.identityProvenance) reasons.push("project_identity_mismatch");
   if (current.historyAnchor !== storedProject.historyAnchor) reasons.push("project_history_anchor_mismatch");

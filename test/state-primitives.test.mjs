@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { chmod, cp, lstat, mkdtemp, mkdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { chmod, cp, lstat, mkdtemp, mkdir, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { observeGit, parseBoundedJson, readSafeReference, resolveContained, sanitizeProjectIdentity, validateId, validateRelativePath, writeExclusive } from "../src/state-primitives.mjs";
@@ -168,6 +168,54 @@ test("repository fsmonitor configuration is never executed", async (t) => {
   git(root, "config", "core.fsmonitor", `!${JSON.stringify(process.execPath)} ${JSON.stringify(script)}`);
   await observeGit(root);
   await assert.rejects(lstat(marker));
+});
+
+test("Git observation fails closed without lazy-fetch helper or repository writes", async (t) => {
+  if (process.platform === "win32") return t.skip("synthetic executable Git remote helper uses POSIX script");
+  const root = await repository(t);
+  const oid = execFileSync("git", ["-C", root, "rev-parse", "HEAD^{tree}"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  await unlink(path.join(root, ".git", "objects", oid.slice(0, 2), oid.slice(2)));
+  git(root, "config", "extensions.partialClone", "origin");
+  git(root, "config", "remote.origin.promisor", "true");
+  git(root, "config", "remote.origin.url", "olympus-test::offline");
+
+  const helperDir = path.join(root, "helper-bin");
+  const marker = path.join(root, "fetch.marker");
+  const helper = path.join(helperDir, "git-remote-olympus-test");
+  await mkdir(helperDir);
+  const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+  await writeFile(helper, `#!/bin/sh\nprintf fetched > ${quote(marker)}\nexit 1\n`);
+  await chmod(helper, 0o700);
+
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${helperDir}${path.delimiter}${originalPath ?? ""}`;
+  const indexBefore = await readFile(path.join(root, ".git", "index"));
+  const configBefore = await readFile(path.join(root, ".git", "config"));
+  const objectFiles = async () => {
+    const found = [];
+    const visit = async (directory, relative = "") => {
+      for (const entry of await readdir(directory, { withFileTypes: true })) {
+        const item = path.join(relative, entry.name);
+        if (entry.isDirectory()) await visit(path.join(directory, entry.name), item);
+        else found.push(item);
+      }
+    };
+    await visit(path.join(root, ".git", "objects"));
+    return found.sort();
+  };
+  const objectsBefore = await objectFiles();
+  try {
+    await assert.rejects(observeGit(root), /Git observation failed|Git output exceeds size limit/);
+    await assert.rejects(readFile(marker), { code: "ENOENT" });
+    assert.deepEqual(await objectFiles(), objectsBefore);
+    assert.deepEqual(await readFile(path.join(root, ".git", "index")), indexBefore);
+    assert.deepEqual(await readFile(path.join(root, ".git", "config")), configBefore);
+    assert.equal(await readFile(path.join(root, "base.txt"), "utf8"), "base\n");
+    await assert.rejects(lstat(path.join(root, ".olympus")), { code: "ENOENT" });
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+  }
 });
 
 test("oversized Git configuration output fails closed", async (t) => {

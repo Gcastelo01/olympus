@@ -6,7 +6,7 @@ import { chmod, mkdtemp, mkdir, readFile, rename, rm, symlink, unlink, writeFile
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { exhumeGraveyard, inspectGraveyard, listGraveyard, validateGraveyard } from "../src/graveyard.mjs";
+import { exhumeGraveyard, explainRetiredReferences, inspectGraveyard, listGraveyard, validateGraveyard } from "../src/graveyard.mjs";
 
 const run = (cwd, args) => execFileSync("git", ["-C", cwd, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 
@@ -394,4 +394,26 @@ test("preserves documented Graveyard CLI exit codes for every validation state",
   const validResult = await invoke(valid.root, ["validate", "GRAVE-001"], "valid");
   assert.equal(validResult.status, 0);
   assert.equal(validResult.result.status, "BURIED");
+});
+
+test("bounded registry reads reject FIFO, directory, symlink, and oversized records", async (t) => {
+  if (process.platform === "win32") return t.skip("FIFO fixture requires POSIX mkfifo");
+  const root = await emptyRepoFixture(t);
+  const directory = path.join(root, "knowledge", "graveyard");
+  await mkdir(directory, { recursive: true });
+  await mkdir(path.join(directory, "GRAVE-101.json"));
+  const outside = path.join(root, "outside.json");
+  await writeFile(outside, "{}");
+  await symlink(outside, path.join(directory, "GRAVE-102.json"));
+  await writeFile(path.join(directory, "GRAVE-103.json"), "x".repeat(65 * 1024));
+  const fifo = path.join(directory, "GRAVE-104.json");
+  execFileSync("mkfifo", [fifo], { timeout: 2000, stdio: "ignore" });
+
+  const report = await validateGraveyard(root);
+  assert.equal(report.status, "INVALID");
+  assert.deepEqual(report.records.map((record) => record.id), ["GRAVE-101", "GRAVE-102", "GRAVE-103", "GRAVE-104"]);
+  assert.ok(report.records.every((record) => record.status === "INVALID"));
+  const hints = await explainRetiredReferences(root, [{ path: "legacy.mjs", observed: "missing" }]);
+  assert.equal(hints.status, "INVALID");
+  assert.ok(hints.issues.every((issue) => issue.status === "INVALID"));
 });

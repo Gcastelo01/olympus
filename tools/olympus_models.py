@@ -1,6 +1,6 @@
 """Single source of truth for Olympus runtime pins (Codex, Pi and Claude Code).
 
-Tier mapping used by Olympus v1.2:
+Tier mapping used by Olympus v1.3:
     economical coordination / execution : gpt-6-luna   <-> claude-haiku-5-5
     balanced specialist                 : gpt-6.1-sol  <-> claude-sonnet-5-5
     deepest analysis                    : gpt-6-astra  <-> claude-opus-5-5
@@ -24,6 +24,7 @@ PINS = {
     "aegis": ("gpt-6-astra", "high"),
     "atlas": ("gpt-6.1-sol", "medium"),
     "atlas-critical": ("gpt-6-astra", "high"),
+    "hades": ("gpt-6-astra", "high"),
 }
 
 SPECIALISTS = [r for r in PINS if r != "zeus"]

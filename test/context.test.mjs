@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { access, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { access, chmod, mkdtemp, mkdir, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { discoverContexts, inspectContext, loadContext, pruneContexts, saveContext } from "../src/context.mjs";
@@ -280,6 +280,25 @@ test("load reconciles changed references, work state, branch, age, and invalidat
   assert.ok((await loadContext(stagedProject, "staged-a")).reasons.includes("work_fingerprint_mismatch"));
 });
 
+test("Git observation failure preserves original indexes of invalidated PASS reviews", async (t) => {
+  const root = await project(t);
+  await writeFile(path.join(root, "review.md"), "review report\n");
+  const observed = await observeGit(root);
+  await save(root, payload("reviews-without-git", {
+    artifacts: [{ path: "review.md", purpose: "review report" }],
+    reviews: [
+      { role: "Argus", verdict: "BLOCKED", report: "review.md", base: observed.head, head: observed.head, workFingerprint: observed.workFingerprint },
+      { role: "Argus", verdict: "PASS", report: "review.md", base: observed.head, head: observed.head, workFingerprint: observed.workFingerprint },
+    ],
+  }));
+
+  await rm(path.join(root, ".git"), { recursive: true, force: true });
+  const loaded = await loadContext(root, "reviews-without-git");
+  assert.equal(loaded.status, "RECONCILIATION_REQUIRED");
+  assert.ok(loaded.reasons.includes("current_git_state_unavailable"));
+  assert.deepEqual(loaded.invalidatedReviews, [1]);
+});
+
 test("explains a checkpointed file deletion from its committed Graveyard retirement without restoring it", async (t) => {
   const root = await project(t);
   const before = await observeGit(root);
@@ -522,5 +541,58 @@ test("credential screening blocks escaped checkpoint input and stored data witho
   await assert.rejects(save(root, payload("safe-artifact", {
     artifacts: [{ path: "artifact-fixture.txt", purpose: "synthetic negative fixture" }],
   })), (error) => !error.message.includes("AUDIT_FAKE_TOKEN_1234567890"));
+});
+
+test("save screens final checkpoint bytes before writing branch-derived metadata", async (t) => {
+  const root = await project(t);
+  const predecessor = await save(root, payload("branch-before"));
+  const predecessorBytes = await readFile(predecessor.file);
+  const synthetic = "github_pat_AUDIT_FAKE_TOKEN_1234567890";
+  git(root, "branch", "-M", synthetic);
+
+  await assert.rejects(save(root, payload("branch-after")), (error) => {
+    assert.match(error.message, /sensitive material/);
+    assert.doesNotMatch(error.message, /github_pat_AUDIT_FAKE_TOKEN_1234567890/);
+    return true;
+  });
+  assert.deepEqual(await readFile(predecessor.file), predecessorBytes);
+  await assert.rejects(readFile(path.join(root, ".olympus/context/branch-after.json")), { code: "ENOENT" });
+  assert.deepEqual(await readdir(path.join(root, ".olympus/context")), ["branch-before.json"]);
+});
+
+test("context Git observation fails closed without running a promisor helper", async (t) => {
+  if (process.platform === "win32") return t.skip("synthetic Git remote helper uses POSIX script");
+  const root = await project(t);
+  await save(root, payload("promisor-load"));
+  const tree = gitText(root, "rev-parse", "HEAD^{tree}");
+  await unlink(path.join(root, ".git", "objects", tree.slice(0, 2), tree.slice(2)));
+  git(root, "config", "extensions.partialClone", "origin");
+  git(root, "config", "remote.origin.promisor", "true");
+  git(root, "config", "remote.origin.url", "olympus-test::offline");
+  const helperDir = path.join(root, "helper-bin");
+  const marker = path.join(root, "fetch.marker");
+  await mkdir(helperDir);
+  const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
+  const helper = path.join(helperDir, "git-remote-olympus-test");
+  await writeFile(helper, `#!/bin/sh\nprintf fetched > ${quote(marker)}\nexit 1\n`);
+  await chmod(helper, 0o700);
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${helperDir}${path.delimiter}${originalPath ?? ""}`;
+  const checkpointBefore = await readFile(path.join(root, ".olympus/context/promisor-load.json"));
+  const indexBefore = await readFile(path.join(root, ".git/index"));
+  const configBefore = await readFile(path.join(root, ".git/config"));
+  try {
+    const loaded = await loadContext(root, "promisor-load");
+    assert.equal(loaded.status, "RECONCILIATION_REQUIRED");
+    assert.ok(loaded.reasons.includes("current_git_state_unavailable"));
+    await assert.rejects(readFile(marker), { code: "ENOENT" });
+    assert.deepEqual(await readFile(path.join(root, ".git/index")), indexBefore);
+    assert.deepEqual(await readFile(path.join(root, ".git/config")), configBefore);
+    assert.deepEqual(await readFile(path.join(root, ".olympus/context/promisor-load.json")), checkpointBefore);
+    assert.equal(await readFile(path.join(root, "app.txt"), "utf8"), "application bytes\n");
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;
+    else process.env.PATH = originalPath;
+  }
 });
 

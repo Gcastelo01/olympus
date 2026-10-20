@@ -131,17 +131,19 @@ async function loadRecord(root, id) {
   let handle;
   let bytes;
   try {
-    handle = await open(absolute, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    const before = await lstat(absolute);
+    if (before.isSymbolicLink() || !before.isFile() || before.size > RECORD_BYTES) throw new Error("Graveyard record is not a bounded regular file");
+    handle = await open(absolute, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
     const info = await handle.stat();
     if (!info.isFile() || info.size > RECORD_BYTES) throw new Error("Graveyard record is not a bounded regular file");
     const buffer = Buffer.alloc(RECORD_BYTES + 1);
     let offset = 0;
-    while (offset < buffer.length) {
+    while (offset <= RECORD_BYTES) {
       const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, offset);
       if (bytesRead === 0) break;
       offset += bytesRead;
+      if (offset > RECORD_BYTES) throw new Error("Graveyard record exceeds size limit");
     }
-    if (offset > RECORD_BYTES) throw new Error("Graveyard record exceeds size limit");
     bytes = buffer.subarray(0, offset);
   } finally { await handle?.close(); }
   const value = parseBoundedJson(bytes, { maxBytes: RECORD_BYTES, validate: (record) => validateGraveyardRecord(record, id) });
