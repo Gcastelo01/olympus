@@ -1,8 +1,8 @@
-# Olympus v1.2 — Installation (Codex CLI, Claude Code, and Pi)
+# Olympus v1.3.0 — Installation (Codex CLI, Claude Code, and Pi)
 
 ## Prerequisites and distribution status
 
-The current npm package identity is `olympus-engineering-harness@1.2.0`; its executable is `olympus`. The installer requires **Node.js 18 or newer**, uses Node's standard library, and needs no dependency installation when run from this source checkout. Install your chosen agent runtime separately, with access to its configured models. Claude Code's write-scope hooks invoke **`python3`**, which must be available on `PATH`; the supporting maintenance tools also use Python.
+The current package identity is `olympus-engineering-harness@1.3.0`; its executable is `olympus`. The installer requires **Node.js 18 or newer**, uses Node's standard library, and needs no dependency installation when run from this source checkout. Install your chosen agent runtime separately, with access to its configured models. Claude Code's write-scope hooks invoke **`python3`**, which must be available on `PATH`; the supporting maintenance tools also use Python.
 
 The npm package and GitHub release have not been published. Local checkout installation is the current path. Publishing to npm and creating a GitHub release are separate maintainer operations. There is no Python package or `pipx` installer.
 
@@ -38,7 +38,7 @@ Preflight is not a filesystem transaction. A later write, permission, disk-space
 The package exposes the same installer as `olympus install --target /path/to/project`. **Only after npm publication under the current name and version**, the equivalent command will be:
 
 ```sh
-npx --yes olympus-engineering-harness@1.2.0 install --target /path/to/project
+npx --yes olympus-engineering-harness@1.3.0 install --target /path/to/project
 ```
 
 Before publication, maintainers must confirm ownership/availability of the npm name and choose the license. The manifest's current identity does not establish registry availability or permission to publish.
@@ -79,7 +79,21 @@ User scope uses the operating system home directory. To select another existing 
 
 This scope installs only `.agents/skills/`, `.agents/agents/`, `.codex/agents/`, `.claude/agents/` and `.claude/hooks/olympus_guard.py`. Codex and Claude agent skill references are rewritten to `~/.agents/skills/`; Claude agent hook commands reference `$HOME/.claude/hooks/olympus_guard.py`. Project configuration, settings, `CLAUDE.md`, instruction templates and tools are skipped. `--home` changes the installation root; it does not rewrite those references to an arbitrary absolute home path.
 
-User installation therefore does not configure the root session, project trust or runtime permissions. Review the runtime setup below, and use project scope when you need the packaged project configuration. `AGENTS.md` remains project-owned in both scopes.
+User installation does not configure the root session, project trust or runtime permissions. Neither installation scope copies the `olympus` CLI (`bin/`/`src/`) or creates global startup instructions. Claude's user-level `zeus` profile includes Hermes guidance, but applies only when explicitly selected with `claude --agent zeus`; Codex and Pi require the trusted project bootstrap and root setup described below. To use Olympus commands, run the CLI from an Olympus source checkout or unpacked package, or use a globally installed `olympus` CLI if available. `AGENTS.md` remains project-owned in both scopes; the installer never creates or overwrites global `AGENTS.md`/`CLAUDE.md` files.
+
+## Hermes and Hades commands
+
+From the target repository root, Hermes stores portable checkpoints and reconciles them against current repository evidence. Run the CLI from an Olympus source checkout or unpacked package (replace `/path/to/olympus` below), or use a globally installed `olympus` executable if available:
+
+```sh
+node /path/to/olympus/bin/olympus.mjs context save --input handoff.json
+node /path/to/olympus/bin/olympus.mjs context discover
+node /path/to/olympus/bin/olympus.mjs context load <checkpoint-id>
+```
+
+`discover` is read-only; always validate a selected head with `load`. Hermes never launches a runtime or restores historical permissions. See the [usage guide](docs/README.md) for checkpoint fields, retention, reconciliation and handoff limits.
+
+Hades is a read-only investigator. Ask Zeus to investigate a suspected implementation; route any approved removal through the BURY workflow and normal Hephaestus/Argus gates. Historical inspection is available through `node /path/to/olympus/bin/olympus.mjs graveyard list --target /path/to/project` and the `search`, `inspect` and `exhume` subcommands (or `olympus graveyard ...` when a global CLI is available). EXHUME does not restore application files. See the [usage guide](docs/README.md#hades-investigate-before-removing) for evidence requirements and recovery limits.
 
 ## Setup launchers
 
@@ -102,7 +116,7 @@ Two allowlists serve different purposes:
 
 | File | Controls |
 |---|---|
-| `package.json` → `files` | Contents offered to npm's tarball packer, including the CLI, installer implementation, manifest, `README.md`, `INSTALL.md`, runtime bindings, support files and the four `templates/` launchers. npm also applies its own packaging rules; inspect the resulting inventory. |
+| `package.json` → `files` | Contents offered to npm's tarball packer, including the CLI, installer implementation, manifest, `README.md`, `docs/README.md`, `INSTALL.md`, runtime bindings, support files and the four `templates/` launchers. npm also applies its own packaging rules; inspect the resulting inventory. |
 | `package-manifest.json` → `resources` | Files/directories expanded recursively and copied into the target project by the installer. |
 | `package-manifest.json` → `protected` | Paths forbidden in the copy plan; currently `AGENTS.md`. |
 
@@ -115,11 +129,11 @@ The current installation resources are:
 
 The npm tarball includes the installer, installation manual and four setup launchers. The target copy plan omits `bin/`, `src/`, `templates/`, both package manifests, `README.md`, and `INSTALL.md`. The installer creates its own `.olympus/manifest.lock.json` in addition to the copied resources. In particular, **the evaluation document and validator are copied into the target**. However, `tools/validate_package.py` requires `INSTALL.md`, so the installed resource set alone cannot satisfy that validator. Run it in the complete source checkout as described below. Update both allowlists deliberately when adding distributable resources.
 
-**8 skill directories** (Zeus + seven specialists) shared by every runtime, plus thin runtime bindings:
+**10 skill directories** (Zeus, Hermes, Hades and seven other specialist roles) are shared by every runtime, plus thin runtime bindings. Hermes is a continuity skill, not an agent; Hades is the eighth specialist role, with a read-only profile in each runtime:
 
-- Codex: `.codex/config.toml` + 8 specialist TOMLs (two Atlas profiles). Zeus is the main Codex session.
-- Claude Code: `CLAUDE.md` + `.claude/settings.json` + 9 agent files (`zeus` as main session, 8 specialists) + the write-scope hook.
-- Pi: 8 specialist profiles in `.agents/agents/`; the root model is selected in Pi.
+- Codex: `.codex/config.toml` + 9 specialist TOMLs (two Atlas profiles). Zeus is the main Codex session.
+- Claude Code: `CLAUDE.md` + `.claude/settings.json` + 10 agent files (`zeus` as main session, 9 specialist profiles) + the write-scope hook.
+- Pi: 9 specialist profiles in `.agents/agents/`; the root model is selected in Pi.
 
 Both Codex and Claude Code can be used on the same repository, even by different people. Nothing in one binding interferes with the other.
 
@@ -150,9 +164,9 @@ claude --agent zeus                     # from the repo root; accept the workspa
 
 **Launch with `--agent zeus`.** In our live test (Claude Code 2.1.302) only the CLI flag applied *both* the Haiku pin and the specialist allowlist to the main session; with just the `agent` key in settings, the session took Zeus's prompt but kept the default model and listed every agent type. The settings key is kept as a fallback. An optional shell alias is `alias olympus-claude='claude --agent zeus'`; this keeps the `olympus` name available for the installer executable.
 
-- `CLAUDE.md` imports `AGENTS.md`, so both runtimes read the same policy.
+- `CLAUDE.md` imports `AGENTS.md`, so Claude Code shares the project policy used by Codex and Pi.
 - `claude --agent zeus` makes the main session take the `zeus` agent's prompt, tool allowlist and model (**claude-haiku-5-5 / medium**). `.claude/settings.json` also sets `"agent": "zeus"` as a fallback.
-- Zeus's tools are `Agent(<8 specialists>)`, `Read`, `Grep`, `Glob`, `Bash`. It cannot edit files and can dispatch **only** the eight named specialists — no built-in agent can be substituted.
+- Zeus's tools are `Agent(<9 specialist profiles>)`, `Read`, `Grep`, `Glob`, `Bash`. It cannot edit files and can dispatch **only** the nine named specialist profiles; Hades is read-only and no built-in agent can be substituted.
 - Specialists have no Agent tool, so they cannot spawn each other; they return handoffs to Zeus, as in Codex.
 - Read-only Git (`status`, `diff`, `log`, `show`, `rev-parse`, `ls-files`) is pre-allowed so Zeus and Argus can gather evidence; `git commit` and `git push` always ask; force-push and `git reset --hard` are denied.
 - Add your project's test/build commands to `permissions.allow` (e.g. `"Bash(npm test:*)"`, in `.claude/settings.local.json` if personal). Otherwise each run asks, and in unattended/headless runs specialists will return `BLOCKED`, which is the correct behavior.
@@ -163,7 +177,9 @@ claude --agent zeus                     # from the repo root; accept the workspa
 
 The installer copies `.agents/agents/` and the shared skills. The specialist profiles reference the `@parke.dev/pi-subagent` integration, which must be installed and configured separately in your Pi environment. Copying the profiles does not install or configure that harness, select the root model, or establish a working delegation flow. Follow the profile requirements and verify routing in your own runtime before relying on it.
 
-## Upgrade from Olympus v1.1
+## Upgrade from earlier Olympus versions
+
+The v1.3 release adds Hermes continuity, Hades archaeology and the Code Graveyard CLI. Use the v1.3.0 checkout and the `--update` command above to update a previous installation; review the project bootstrap merge because the installer preserves `AGENTS.md` and does not merge local edits.
 
 For the runtime migration from v1.1, v1.2 adds Claude Code bindings and extends the skills' *execution profile* sections to list both runtimes. From a newer Olympus checkout, use the `--update` command above to copy those packaged resources into an existing project. The installer does not merge local edits.
 
@@ -205,7 +221,7 @@ To prepare a release, review the diff and both allowlists, choose the license, c
 | The future `npx` command cannot resolve the package/version | Use the local-checkout command until that exact npm package/version is published. |
 | Pi definitions are present but delegation does not work | Configure the external Pi subagent integration and verify its routing separately. |
 
-## Everyday usage (same prompts on both runtimes)
+## Everyday usage (same prompts on Codex CLI, Claude Code and Pi)
 
 - `Corrija este bug, siga Olympus, rode os testes e audite antes de concluir.`
 - `Planeje esta mudança com Athena/Moirai conforme necessidade. Não implemente.`
@@ -216,7 +232,7 @@ Codex: `/skills`, `/subagents`. Claude Code: `/agents`; an `@agent-<name>` menti
 
 ## Operational caveats
 
-- Project config is applied only in **trusted** projects on both runtimes; CLI flags, local settings and managed (organization) settings can override it. Confirm the actual selected model.
+- Codex and Claude Code project config applies only in **trusted** projects; CLI flags, local settings and managed (organization) settings can override it. Pi uses its independently configured root model and specialist harness. Confirm the actual selected model.
 - `AGENTS.md`/`CLAUDE.md` are project guidance, not a security boundary. Privileges come from the runtime's sandbox, permission and approval settings. The Claude Code write-scope hook only covers file-editing tools; shell commands are still governed by permissions. Do not weaken sandboxing to make Olympus work.
 - If the provider/account does not support a pinned model (or an effort level for that model), stop and report it rather than silently switching models.
 - Frontmatter hooks (the write-scope guard) run **only after the folder is trusted**; in an untrusted folder Claude Code skips them silently in headless mode. Open the repo once interactively and accept the trust prompt.

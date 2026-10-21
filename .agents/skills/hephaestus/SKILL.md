@@ -79,6 +79,10 @@ If `knowledge/README.md`, `knowledge/roadmap.md` and task files exist, read thei
 
 A targeted smoke test beyond passing acceptance gates is warranted only when one concrete important risk remains untested; state that risk first. No repeated equivalent validation.
 
+## Hermes checkpoint obligations
+
+For an accepted task using Hermes, create an initial checkpoint before material work when feasible. Save immutable successors at verified milestones, material next-step/blocker changes, a planned session handoff, or a turn-ending summary; use a completed successor when the user-selected task is complete. Preserve original test/review provenance rather than renewing verdicts. Include saves in the existing implementation dispatch; only request a narrow administrative save when no writer is active and persistence is needed. A failed save must identify the last persisted checkpoint and must not claim new progress is durable. Never overwrite predecessors, maintain an active pointer, or delete another session's result. If the checkpoint CLI is unavailable, report that limitation to Zeus rather than inventing a persisted handoff.
+
 ## Focused diagnostic and empirical engineering protocol
 
 Apply only to relevant tasks: use this procedure for complex bugs, performance regressions, hardware/platform incompatibility, reproducibility failures, or reliability defects. Do **not** turn a simple change into an expansive investigation.
