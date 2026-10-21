@@ -6,7 +6,43 @@ The current package identity is `olympus-engineering-harness@1.3.0`; its executa
 
 The npm package and GitHub release have not been published. Local checkout installation is the current path. Publishing to npm and creating a GitHub release are separate maintainer operations. There is no Python package or `pipx` installer.
 
-Contents: [project installation](#install-into-a-project), [update modes](#update-modes-and-installation-state), [user installation](#install-for-a-user), [setup launchers](#setup-launchers), [package contents](#package-maintenance), [manual source archive](#manual-install-from-a-source-archive), [Codex](#codex-cli), [Claude Code](#claude-code), [Pi](#pi), [upgrades](#upgrade-from-olympus-v11), [validation](#validation-and-publication), [troubleshooting](#troubleshooting).
+Contents: [CLI availability](#make-the-olympus-command-available), [project installation](#install-into-a-project), [update modes](#update-modes-and-installation-state), [user installation](#install-for-a-user), [setup launchers](#setup-launchers), [package contents](#package-maintenance), [manual source archive](#manual-install-from-a-source-archive), [Codex](#codex-cli), [Claude Code](#claude-code), [Pi](#pi), [upgrades](#upgrade-from-olympus-v11), [validation](#validation-and-publication), [troubleshooting](#troubleshooting).
+
+## Make the `olympus` command available
+
+Installing Olympus has two separate steps: make the CLI available, then use it to install agent resources into a project or user home. The `install --target ...` and `install --scope user` commands copy those resources; neither copies the CLI (`bin/` and `src/`), registers an `olympus` executable, or adds it to `PATH`. The setup launchers also install resources without registering the Olympus CLI. A successful resource installation can therefore leave your terminal reporting `olympus: command not found` or that `olympus` is not recognized.
+
+### Run directly from a local checkout
+
+With Node.js 18 or newer, invoke the CLI by its full path. No npm installation is needed. Replace `/path/to/olympus` with the checkout's actual absolute path; keep the quotes for paths containing spaces:
+
+```sh
+node "/path/to/olympus/bin/olympus.mjs" context --help
+node "/path/to/olympus/bin/olympus.mjs" install --target "/path/to/project"
+```
+
+Use your platform's path syntax, for example `node "C:\path\to\olympus\bin\olympus.mjs" context --help` on Windows. For commands such as `context discover`, run from the target Git repository or pass `--target "/path/to/project"`; the CLI's location does not select the working project. Keep the checkout available for later commands.
+
+### Install the CLI globally from a local checkout
+
+To use the shorter `olympus` command, install the local checkout with npm (in addition to Node.js):
+
+```sh
+npm install --global "/path/to/olympus"
+olympus context --help
+```
+
+Replace the path with the actual checkout path, using Windows path syntax where appropriate. This uses the local package and does not require its publication to npm. npm registers the `olympus` executable declared in `package.json`; this step does not install agent resources into your projects or user home. Continue with the resource installation below, using either `olympus install ...` or the direct Node invocation. A local global installation can link to the checkout, so keep it in place; rerun the command with its new path if you move it.
+
+If npm succeeds but `olympus` is still unavailable, inspect the prefix used by that npm installation:
+
+```sh
+npm prefix --global
+```
+
+On macOS/Linux, the executable directory is `<prefix>/bin`; on Windows, it is `<prefix>` itself. Add that directory to `PATH` using your operating system or shell's configuration, then open a new terminal and retry `olympus context --help`. If you use a Node version manager, use the same active Node/npm installation that performed the global install. For a permissions error, use a writable npm global prefix or your Node version manager's setup instructions. The direct Node invocation above remains available without a global installation.
+
+**Registry-based `npx` commands are unavailable until the npm package is published.** Use one of the local-checkout options above today; the future `npx` example below is not a current installation option.
 
 ## Install into a project
 
@@ -79,7 +115,7 @@ User scope uses the operating system home directory. To select another existing 
 
 This scope installs only `.agents/skills/`, `.agents/agents/`, `.codex/agents/`, `.claude/agents/` and `.claude/hooks/olympus_guard.py`. Codex and Claude agent skill references are rewritten to `~/.agents/skills/`; Claude agent hook commands reference `$HOME/.claude/hooks/olympus_guard.py`. Project configuration, settings, `CLAUDE.md`, instruction templates and tools are skipped. `--home` changes the installation root; it does not rewrite those references to an arbitrary absolute home path.
 
-User installation does not configure the root session, project trust or runtime permissions. Neither installation scope copies the `olympus` CLI (`bin/`/`src/`) or creates global startup instructions. Claude's user-level `zeus` profile includes Hermes guidance, but applies only when explicitly selected with `claude --agent zeus`; Codex and Pi require the trusted project bootstrap and root setup described below. To use Olympus commands, run the CLI from an Olympus source checkout or unpacked package, or use a globally installed `olympus` CLI if available. `AGENTS.md` remains project-owned in both scopes; the installer never creates or overwrites global `AGENTS.md`/`CLAUDE.md` files.
+User installation does not configure the root session, project trust or runtime permissions. Neither installation scope copies the `olympus` CLI (`bin/`/`src/`) or creates global startup instructions. Claude's user-level `zeus` profile includes Hermes guidance, but applies only when explicitly selected with `claude --agent zeus`; Codex and Pi require the trusted project bootstrap and root setup described below. To use Olympus commands, follow [CLI availability](#make-the-olympus-command-available) for direct invocation or global installation from a local checkout. `AGENTS.md` remains project-owned in both scopes; the installer never creates or overwrites global `AGENTS.md`/`CLAUDE.md` files.
 
 ## Hermes and Hades commands
 
@@ -210,6 +246,7 @@ To prepare a release, review the diff and both allowlists, choose the license, c
 
 | Symptom | Action |
 |---|---|
+| `olympus: command not found` / `olympus` is not recognized | Resource installation does not register the CLI. Use the [direct Node invocation or local global installation](#make-the-olympus-command-available); after global installation, check `npm prefix --global` and the corresponding executable directory on `PATH`. |
 | `Target directory does not exist` | Create or select the intended directory, then repeat the command with explicit `--target`. |
 | `Conflicting managed files found` | Review the paths. Use `--upgrade` for unchanged tracked resources, back up edits before `--update`, or review the automatic backup behavior before `--force`. No managed files are replaced when preflight detects conflicts. |
 | `Backup already exists` | Review and move the existing `.olympus-bak` file before retrying force; the installer refuses to overwrite it. |
