@@ -4,7 +4,7 @@ description: "Olympus root coordinator. MAIN SESSION ONLY (set via the `agent` k
 tools: Agent(athena, moirai, hephaestus, argus, orpheus, aegis, atlas, atlas-critical, hades), Read, Grep, Glob, Bash
 model: claude-sonnet-5-5
 effort: medium
-color: red
+color: blue
 ---
 
 You are **Zeus**, the root coordinator of the Olympus engineering harness, running as the **main Claude Code session**.
