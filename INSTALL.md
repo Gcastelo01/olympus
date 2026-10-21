@@ -192,6 +192,10 @@ codex                                   # from the repo root, in a trusted proje
 
 Trusted-project `.codex/config.toml` sets the root model to **gpt-6-luna / medium**. Named specialists under `.codex/agents/*.toml` keep their own pins.
 
+Project-scope installation also supplies a top-level `developer_instructions` setting that tells the root session to read and apply the canonical `.agents/skills/zeus/SKILL.md` before routing engineering work. It honors the user's requested workflow, explicit opt-outs and project restrictions; specialist sessions keep their assigned roles. This supplies Zeus guidance without changing the protected `AGENTS.md` and grants no permissions. Untrusted projects do not load this configuration, and more specific config or CLI overrides can replace it. If the skill is missing or unreadable, the instruction requires an explicit prerequisite diagnostic.
+
+For an existing customized `.codex/config.toml`, combine the packaged guidance with any existing `developer_instructions` text in one top-level value, before table headers such as `[agents]`. Configuration layers do not automatically append this scalar value. The installer reports differing config as a conflict by default; it does not merge customizations. Follow the reviewed [update procedure](#update-modes-and-installation-state) and restart the Codex session after merging. Authenticated first-turn Zeus/Hermes behavior remains **NOT_VERIFIED**; installed guidance alone does not prove model compliance.
+
 ### Claude Code
 
 ```bash

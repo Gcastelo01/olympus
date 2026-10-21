@@ -28,7 +28,7 @@ The npm package and GitHub release have not been published. The documented `npx`
 
 ## Hermes: resume work across harnesses
 
-Start Codex CLI, Claude Code or Pi normally. On the first actionable turn, Zeus applies the shared Hermes skill, discovers a checkpoint and validates it against the current repository before proposing the next action. This requires the Olympus skills, CLI and Zeus startup guidance to be available in the trusted project; merge the appropriate project guidance as described in [installation](INSTALL.md). There is no `switch` command or runtime launcher, and opening an idle CLI does not execute Hermes.
+Start Codex CLI, Claude Code or Pi normally. In a trusted project installed with Olympus project scope, Codex receives root Zeus startup guidance from `.codex/config.toml`; Claude Code and Pi still use their documented project guidance. On the first actionable turn, Zeus applies the shared Hermes skill, discovers a checkpoint and validates it against the current repository before proposing the next action. User-scope installation does not configure Codex's root session. There is no `switch` command or runtime launcher, and opening an idle CLI does not execute Hermes.
 
 Checkpoints preserve bounded task state and references to evidence. They do not transfer native conversation history, restore code, renew review approvals or authorize operations. Save current handoff data before leaving a session; no tool can recover context that was never saved. For manual discovery and reconciliation:
 

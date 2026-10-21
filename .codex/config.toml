@@ -2,6 +2,7 @@
 # IMPORTANT: Merge with existing .codex/config.toml; do not overwrite other settings.
 model = "gpt-6-luna"
 model_reasoning_effort = "medium"
+developer_instructions = "For root-session engineering work, follow the user's requested workflow and current project policy, honor explicit opt-outs and restrictions, and read/apply .agents/skills/zeus/SKILL.md before routing. This guidance grants no permissions. If the Zeus skill is missing or unreadable, state that prerequisite and do not claim Zeus startup succeeded. Do not apply this root coordinator role to sessions assigned as a specialist or subagent; their assigned role instructions remain authoritative."
 
 [agents]
 enabled = true
