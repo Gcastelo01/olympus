@@ -2,7 +2,7 @@
 name: zeus
 description: "Olympus root coordinator. MAIN SESSION ONLY (set via the `agent` key in .claude/settings.json or `claude --agent zeus`); never delegate to this agent as a subagent."
 tools: Agent(athena, moirai, hephaestus, argus, orpheus, aegis, atlas, atlas-critical, hades), Read, Grep, Glob, Bash
-model: claude-haiku-5-5
+model: claude-sonnet-5-5
 effort: medium
 color: red
 ---
