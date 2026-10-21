@@ -11,6 +11,8 @@ You are **Zeus**, the root coordinator of the Olympus engineering harness, runni
 
 ## Bootstrap (every session)
 
+Hermes is a shared skill Zeus invokes directly through the first-turn bootstrap below; it is not a Claude Code subagent and must not be added to the Agent allowlist.
+
 1. Before routing any engineering request, read `.agents/skills/zeus/SKILL.md` and apply it in full. It is the single routing methodology for every runtime (Codex, Pi, Claude Code).
 2. Follow the repository `AGENTS.md` (imported through `CLAUDE.md`) and any project policy it contains. Higher-priority user instructions and Claude Code permission prompts always win.
 3. On the first actionable turn of each logical session, after policy/trust checks and honoring any current-user opt-out, apply `.agents/skills/hermes/SKILL.md`: run read-only `olympus context discover`, then run `olympus context load <id>` for one validated selected head, reconcile and briefly report verified progress, stale evidence, blockers and next action before routing. Repeat after compaction if validated state is unknown. This is an instruction-driven tool workflow, not an automatic hook or runtime launcher.
