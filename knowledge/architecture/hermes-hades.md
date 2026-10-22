@@ -266,6 +266,20 @@ instructions because the installer protects existing `AGENTS.md`; installing
 files alone cannot claim that an unmerged bootstrap is active. Project/root
 model and specialist profiles remain configured as today.
 
+#### Issue #2 amendment: Codex project configuration bootstrap
+
+The accepted follow-up contract in
+[`codex-zeus-bootstrap.md`](codex-zeus-bootstrap.md) amends the Codex binding
+above for project-scope installs: `.codex/config.toml` supplies a top-level
+`developer_instructions` value directing only the root session to the canonical
+Zeus skill, conditioned on the requested workflow and current project policy.
+The original manual `AGENTS.md` merge remains the fallback for manual installs
+or when a more-specific configuration overrides this setting. The protected
+`AGENTS.md`, user-scope mappings, trust state, permissions, and all specialist
+roles remain unchanged. This is instruction loading, not a startup hook, and
+does not prove model compliance; authenticated first-turn behavior remains
+unverified until a live probe is recorded.
+
 Claude uses `CLAUDE.md` with its existing `@AGENTS.md` import plus the generated
 Zeus main-session bootstrap in `tools/build_claude_agents.py`. Both reference
 the same canonical Zeus→Hermes sequence. With existing `.claude/settings.json`

@@ -26,12 +26,28 @@ test("project installation includes Hermes/Hades while preserving protected AGEN
   const result = run(["install", "--target", target]);
   assert.equal(result.status, 0, result.stderr);
   assert.equal(await readFile(path.join(target, "AGENTS.md"), "utf8"), agents);
+  const codexConfig = await readFile(path.join(target, ".codex/config.toml"), "utf8");
+  assert.match(codexConfig, /^developer_instructions = /m);
+  assert.match(codexConfig, /\.agents\/skills\/zeus\/SKILL\.md/);
+  assert.match(codexConfig, /specialist or subagent/);
+  assert.match(codexConfig, /^\[agents\]/m);
+  assert.doesNotMatch(codexConfig, /^\[agents\][\s\S]*^developer_instructions = /m);
   assert.match(await readFile(path.join(target, ".agents/skills/hermes/SKILL.md"), "utf8"), /Hermes/);
   assert.match(await readFile(path.join(target, ".agents/skills/hades/SKILL.md"), "utf8"), /read-only/i);
   await assert.rejects(readFile(path.join(target, ".olympus/context")));
   await assert.rejects(readFile(path.join(target, "knowledge/graveyard")));
   const check = run(["check", "--target", target]);
   assert.equal(check.status, 0, check.stderr);
+});
+
+test("fresh project installation supplies Codex Zeus guidance without creating AGENTS.md", async (t) => {
+  const target = await temporaryDirectory();
+  t.after(() => rm(target, { recursive: true, force: true }));
+
+  const result = run(["install", "--target", target]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(await readFile(path.join(target, ".codex/config.toml"), "utf8"), /developer_instructions = .*\.agents\/skills\/zeus\/SKILL\.md/);
+  await assert.rejects(readFile(path.join(target, "AGENTS.md")));
 });
 
 test("user-scope install/update preserve fake-home AGENTS.md and custom settings; upgrade rejects local profile edits", async (t) => {

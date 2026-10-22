@@ -13,7 +13,7 @@ enabled = true
 max_concurrent_threads_per_session = 2
 ```
 
-Add the Zeus bootstrap from `AGENTS.template.md` to your root `AGENTS.md`. Do not add `.codex/agents/zeus.toml`.
+Project-scope Olympus installation supplies the Codex root bootstrap through the top-level `developer_instructions` key in `.codex/config.toml`. Existing customized configs must merge this key while preserving any existing `developer_instructions` value. For manual installations, use the bootstrap from `AGENTS.template.md` in the project's trusted guidance. Do not add `.codex/agents/zeus.toml`.
 
 ## Claude Code
 
